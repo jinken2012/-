@@ -1400,9 +1400,20 @@ window.STANDALONE = true;
   }
 
   /* ============ 记录列表 ============ */
+  /* 按「送礼 / 收礼那天」排（新 → 旧），不是按什么时候记进手机的。
+     日期不详（补记时想不起哪天）的一律沉底；同一天按记的先后。 */
+  function byDate(a, b) {
+    var da = a.date || '', db = b.date || '';
+    if (da !== db) {
+      if (!da) return 1;
+      if (!db) return -1;
+      return da < db ? 1 : -1;
+    }
+    return (b.ts || 0) - (a.ts || 0);
+  }
+
   function renderRecords() {
-    var all = state.records.slice()
-      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    var all = state.records.slice().sort(byDate);
 
     // 年份筛选（按年份统计）
     var years = [];
@@ -1814,7 +1825,7 @@ window.STANDALONE = true;
     var p = findPerson(state.detailId);
     if (!p) { closeDetail(); return; }
     var rs = state.records.filter(function (r) { return r.personId === p.id; })
-      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      .sort(byDate);
 
     var b = balanceOf(p);
     var outRows = rs.filter(function (r) { return !isIn(r); });
