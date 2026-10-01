@@ -261,6 +261,18 @@ button { cursor: pointer; border: none; background: none; }
   font-size: 12.5px;
   line-height: 1.5;
 }
+.hint--ok { color: var(--green); }
+.hint--bad { color: #c0392b; }
+
+/* 云同步设置面板 */
+.sheet__title { margin: 10px 16px 6px; }
+.sheet__hint { margin: 0 16px 10px; }
+.sheet__acts { padding: 6px 12px 16px; }
+.sheet .row select.row__input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
 
 .bar {
   display: flex;
@@ -666,6 +678,15 @@ button { cursor: pointer; border: none; background: none; }
       <button class="wide-btn wide-btn--ghost" id="btnImportData">导入并合并数据</button>
       <input type="file" id="fileImport" accept=".json,application/json" hidden>
     </div>
+
+    <!-- 云同步：数据存在你自己的 GitHub / Gitee 仓库里，手机和电脑读同一份 -->
+    <div class="panel">
+      <div class="panel__title">云同步</div>
+      <div class="hint" id="cloudHint"></div>
+      <button class="wide-btn wide-btn--ghost" id="btnCloudSync" hidden>立即同步</button>
+      <button class="wide-btn wide-btn--ghost" id="btnCloudSetup">配置云同步</button>
+      <button class="wide-btn wide-btn--ghost" id="btnCloudOff" hidden>关闭云同步</button>
+    </div>
   </main>
 
   <nav class="tabbar" id="tabbar">
@@ -738,6 +759,55 @@ button { cursor: pointer; border: none; background: none; }
     <button class="pad__key" data-k="9">9</button>
     <button class="pad__key" data-k="0">0</button>
     <button class="pad__key" data-k="dot">.</button>
+  </div>
+</section>
+
+<!-- ========== 云同步设置 ========== -->
+<div class="mask" id="cloudMask" hidden></div>
+<section class="sheet" id="cloudSheet" hidden>
+  <div class="sheet__handle"></div>
+  <div class="panel__title sheet__title">云同步</div>
+  <div class="hint sheet__hint">
+    数据存进你自己的一个 GitHub 或 Gitee 仓库（就一个 json 文件），手机和电脑读同一份，不用再来回导出导入。
+  </div>
+
+  <div class="rows">
+    <label class="row">
+      <span class="row__label">平台</span>
+      <select class="row__input" id="cPlatform">
+        <option value="github">GitHub</option>
+        <option value="gitee">Gitee 码云</option>
+      </select>
+    </label>
+    <label class="row">
+      <span class="row__label">用户名</span>
+      <input class="row__input" id="cOwner" placeholder="GitHub / Gitee 的用户名或组织" autocomplete="off">
+    </label>
+    <label class="row">
+      <span class="row__label">仓库名</span>
+      <input class="row__input" id="cRepo" placeholder="如 giftbook-data" autocomplete="off">
+    </label>
+    <label class="row">
+      <span class="row__label">分支</span>
+      <input class="row__input" id="cBranch" placeholder="留空 = GitHub 用 main / Gitee 用 master" autocomplete="off">
+    </label>
+    <label class="row">
+      <span class="row__label">文件路径</span>
+      <input class="row__input" id="cPath" placeholder="留空 = 礼金数据.json" autocomplete="off">
+    </label>
+    <label class="row">
+      <span class="row__label">访问令牌</span>
+      <input class="row__input" id="cToken" type="password" placeholder="只授权这一个仓库的读写" autocomplete="off">
+    </label>
+  </div>
+
+  <div class="hint sheet__hint">
+    令牌只存在这台设备的浏览器里，不会写进导出的数据文件，也不会出现在页面源码里。
+  </div>
+
+  <div class="sheet__acts">
+    <button class="wide-btn" id="btnCloudSave">保存并同步</button>
+    <button class="wide-btn wide-btn--ghost" id="btnCloudClose">取消</button>
   </div>
 </section>
 
@@ -2030,6 +2100,7 @@ window.SEED_PEOPLE = [
   var state = {
     people: [],
     records: [],
+    deleted: [],       // 删掉的记录 id（墓碑）：云同步时靠它把删除也带过去
     tab: 'people',
     query: '',
     peopleFilter: 'all',
@@ -2055,6 +2126,15 @@ window.SEED_PEOPLE = [
     return changed;
   }
 
+  /* 老数据里的 page（页码 / 照片号）不再保留，读到就顺手去掉 */
+  function dropPageField() {
+    var changed = false;
+    state.people.forEach(function (p) {
+      if ('page' in p) { delete p.page; changed = true; }
+    });
+    return changed;
+  }
+
   /* ============ 初始化 ============ */
   function init() {
     // 数据来源优先级：服务给的（电脑上） → 本机存的（手机/托管） → 更老的那份 → 账本种子
@@ -2073,23 +2153,28 @@ window.SEED_PEOPLE = [
     if (saved && saved.people) {
       state.people = saved.people;
       state.records = saved.records || [];
+      state.deleted = saved.deleted || [];
       var fixed = applyNameFixes();
+      if (dropPageField()) fixed = true;
       if (!fromFile || fixed) persist();
     } else {
       state.people = (window.SEED_PEOPLE || []).map(function (p) {
         return { id: p.id, name: p.name, gift: p.gift, repaid: !!p.repaid, note: p.note || '' };
       });
       state.records = [];
+      state.deleted = [];
       persist();
     }
     bind();
     renderPeople();
     renderRecords();
     renderStats();
+    renderCloud();
+    cloudSync(true);          // 配过云同步的话，开屏后台拉一次
   }
 
   function persist() {
-    store.save({ people: state.people, records: state.records });
+    store.save({ people: state.people, records: state.records, deleted: state.deleted });
   }
 
   /* ============ 小工具 ============ */
@@ -2745,6 +2830,7 @@ window.SEED_PEOPLE = [
                  (isIn(r) ? '收礼' : '送礼') + ' ' + money(r.amount) + ' 元？')) return;
 
     state.records.splice(idx, 1);
+    state.deleted.push(r.id);     // 记一笔墓碑，云同步时别被别的设备拉回来
     persist();
     renderPeople();
     renderRecords();
@@ -2875,7 +2961,7 @@ window.SEED_PEOPLE = [
      手机和电脑各存各的，靠这个 json 文件来回搬：
      在手机点「导出数据文件」→ 把文件发给自己 → 电脑上点「导入并合并」。 */
   function exportDataFile() {
-    var body = JSON.stringify({ people: state.people, records: state.records }, null, 2);
+    var body = JSON.stringify({ people: state.people, records: state.records, deleted: state.deleted }, null, 2);
     var name = '礼金数据_' + stamp() + '.json';
     var blob = new Blob([body], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -2890,8 +2976,22 @@ window.SEED_PEOPLE = [
           state.records.length + ' 笔）');
   }
 
-  /* 按 id 合并；认不出 id 就按姓名认同一人，避免同一人两边各建一条 */
+  /* 按 id 合并；认不出 id 就按姓名认同一人，避免同一人两边各建一条。
+     两边都只做「并集」和「删除墓碑」，所以不会因为先后顺序丢数据。 */
   function mergeData(obj) {
+    obj = obj || {};
+
+    // ---- 墓碑并集：谁删过都算删，本机记录里在墓碑上的直接去掉 ----
+    if (!state.deleted) state.deleted = [];
+    var tomb = {};
+    state.deleted.forEach(function (id) { tomb[id] = 1; });
+    (obj.deleted || []).forEach(function (id) {
+      if (id && !tomb[id]) { tomb[id] = 1; state.deleted.push(id); }
+    });
+    var beforeR = state.records.length;
+    state.records = state.records.filter(function (r) { return !tomb[r.id]; });
+    var removed = beforeR - state.records.length;
+
     var byId = {}, byName = {};
     state.people.forEach(function (p) {
       byId[p.id] = p;
@@ -2924,6 +3024,7 @@ window.SEED_PEOPLE = [
 
     var seen = {};
     state.records.forEach(function (r) { seen[r.id] = 1; });
+    Object.keys(tomb).forEach(function (id) { seen[id] = 1; });   // 删掉的别再拉回来
     var addedR = 0;
 
     (obj.records || []).forEach(function (r) {
@@ -2945,7 +3046,7 @@ window.SEED_PEOPLE = [
       addedR++;
     });
 
-    return { people: addedP, records: addedR, merged: mergedP };
+    return { people: addedP, records: addedR, merged: mergedP, removed: removed };
   }
 
   function importDataFile(file) {
@@ -2963,12 +3064,226 @@ window.SEED_PEOPLE = [
       renderRecords();
       renderStats();
       var msg = '合并完成：新增 ' + r.people + ' 人 / ' + r.records + ' 笔';
-      if (r.merged) msg += '，更新 ' + r.merged + ' 人的信息';
-      if (!r.people && !r.records && !r.merged) msg = '这份数据和现在的完全一样，没有变化';
+      if (r.merged) msg += '，更新 ' + r.merged + '人的信息';
+      if (r.removed) msg += '，按对面的删除记录去掉 ' + r.removed + ' 笔';
+      if (!r.people && !r.records && !r.merged && !r.removed) msg = '这份数据和现在的完全一样，没有变化';
       toast(msg);
     };
     fr.onerror = function () { toast('文件读不了，换个文件试试'); };
     fr.readAsText(file);
+  }
+
+  /* ============ 云同步 ============
+     把数据存进你自己的一个 GitHub / Gitee 仓库（就一个 json 文件），
+     手机和电脑读的是同一份，不用再来回导出导入了。
+     只用仓库的 Contents API，不需要服务器；令牌只存在这台设备，不进导出文件。 */
+  var CLOUD_KEY = 'giftbook.cloud';
+  var cloudBusy = false;
+
+  function nowHM() {
+    var d = new Date();
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function cloudConf() {
+    try {
+      var raw = localStorage.getItem(CLOUD_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveCloudConf(c) {
+    try {
+      if (c) localStorage.setItem(CLOUD_KEY, JSON.stringify(c));
+      else localStorage.removeItem(CLOUD_KEY);
+    } catch (e) { /* 存不了就算了 */ }
+    renderCloud();
+  }
+
+  /* 中文要先转成 UTF-8 字节再 base64，不然仓库里存的是乱码 */
+  function b64enc(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function b64dec(s) { return decodeURIComponent(escape(atob(String(s).replace(/[\r\n]/g, '')))); }
+
+  function cloudFile(c) { return c.path || '礼金数据.json'; }
+  function cloudBranch(c) { return c.branch || (c.platform === 'gitee' ? 'master' : 'main'); }
+
+  function cloudApi(c) {
+    return c.platform === 'gitee'
+      ? 'https://gitee.com/api/v5/repos/' + c.owner + '/' + c.repo + '/contents/' + cloudFile(c)
+      : 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + cloudFile(c);
+  }
+
+  function cloudHeaders(c) {
+    var h = { 'Content-Type': 'application/json' };
+    if (c.platform !== 'gitee') {
+      h['Authorization'] = 'Bearer ' + c.token;
+      h['Accept'] = 'application/vnd.github+json';
+      h['X-GitHub-Api-Version'] = '2022-11-28';
+    }
+    return h;
+  }
+
+  function cloudGet(c) {
+    var url = cloudApi(c) + '?ref=' + encodeURIComponent(cloudBranch(c));
+    if (c.platform === 'gitee') url += '&access_token=' + encodeURIComponent(c.token);
+    return fetch(url, { headers: cloudHeaders(c) }).then(function (r) {
+      if (r.status === 404) return null;          // 第一次同步，仓库里还没这个文件
+      if (r.status === 401 || r.status === 403) return cloudFail(r, '令牌不对，或没有这个仓库的权限');
+      if (!r.ok) return cloudFail(r, '读取失败');
+      return r.json().then(function (j) {
+        var data = null;
+        try { data = JSON.parse(b64dec(j.content)); } catch (e) { data = null; }
+        return { sha: j.sha, data: data };
+      });
+    });
+  }
+
+  /* 把仓库返回的那句话抠出来 —— 只看到「HTTP 400」根本没法排查 */
+  function cloudMsg(r) {
+    return r.text().then(function (t) {
+      try {
+        var j = JSON.parse(t);
+        return (j && (j.message || j.error)) || '';
+      } catch (e) {
+        return String(t || '').slice(0, 120);
+      }
+    }, function () { return ''; });
+  }
+
+  function cloudFail(r, what) {
+    return cloudMsg(r).then(function (m) {
+      throw new Error(m ? what + '：' + m : what + '（HTTP ' + r.status + '）');
+    });
+  }
+
+  /* 写文件。注意两个平台的接口不一样：
+     GitHub —— 一个 PUT 管新建和更新（带 sha = 更新，不带 = 新建）
+     Gitee  —— POST 新建、PUT 更新，且更新时 sha 是必填参数 */
+  function cloudPut(c, sha) {
+    var payload = JSON.stringify(
+      { people: state.people, records: state.records, deleted: state.deleted }, null, 2);
+    var body = { message: '同步礼金数据 ' + stamp(), content: b64enc(payload), branch: cloudBranch(c) };
+    var url = cloudApi(c);
+    var method = 'PUT';
+
+    if (c.platform === 'gitee') {
+      url += '?access_token=' + encodeURIComponent(c.token);
+      if (sha) body.sha = sha;      // 已经有这个文件 → 更新
+      else method = 'POST';         // 仓库里还没这个文件 → 新建
+    } else if (sha) {
+      body.sha = sha;
+    }
+
+    return fetch(url, {
+      method: method, headers: cloudHeaders(c), body: JSON.stringify(body)
+    }).then(function (r) {
+      if (r.ok) return true;
+      if (r.status === 401 || r.status === 403) return cloudFail(r, '令牌不对，或没有这个仓库的权限');
+      // 撞车（别人刚推过）：拿新 sha 重来。两家报法不一致，状态码和返回文案一起看
+      return cloudMsg(r).then(function (m) {
+        if (r.status === 409 || r.status === 422 || /conflict|冲突|已存在|sha/i.test(m)) {
+          var e = new Error('文件刚被别人改过');
+          e.conflict = true;
+          throw e;
+        }
+        throw new Error(m ? '写入失败：' + m : '写入失败（HTTP ' + r.status + '）');
+      });
+    });
+  }
+
+  /* 拉下来 → 合并 → 推回去。中间撞车（别人刚推过）就拿新 sha 重来一次 */
+  function cloudOnce(c, attempt) {
+    return cloudGet(c).then(function (remote) {
+      var r = remote && remote.data ? mergeData(remote.data) : null;
+      if (r) {
+        renderPeople();
+        renderRecords();
+        renderStats();
+        if (state.detailId) renderDetail();
+      }
+      return cloudPut(c, remote && remote.sha).then(function () { return r; }, function (e) {
+        if (e.conflict && attempt < 2) return cloudOnce(c, attempt + 1);
+        throw e;
+      });
+    });
+  }
+
+  function cloudSync(silent) {
+    var c = cloudConf();
+    if (!c || !c.token) { if (!silent) toast('还没配置云同步'); return; }
+    if (cloudBusy) { if (!silent) toast('正在同步，稍等一下'); return; }
+    if (typeof fetch !== 'function') { if (!silent) toast('这个浏览器不支持云同步'); return; }
+
+    cloudBusy = true;
+    cloudSetHint('同步中…', '');
+    cloudOnce(c, 0).then(function (r) {
+      cloudBusy = false;
+      persist();
+      cloudSetHint('已同步 · ' + nowHM(), 'ok');
+      if (!silent) {
+        var n = r ? (r.people + r.records + r.merged + r.removed) : 0;
+        toast(n ? '云同步完成，更新了 ' + n + ' 处' : '云同步完成，已经是最新的');
+      }
+    })['catch'](function (e) {
+      cloudBusy = false;
+      cloudSetHint('同步失败：' + e.message, 'bad');
+      if (!silent) toast('云同步失败：' + e.message);
+    });
+  }
+
+  function cloudSetHint(text, kind) {
+    var el = $('cloudHint');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'hint' + (kind === 'ok' ? ' hint--ok' : kind === 'bad' ? ' hint--bad' : '');
+  }
+
+  function renderCloud() {
+    var c = cloudConf();
+    var sync = $('btnCloudSync'), off = $('btnCloudOff');
+    if (sync) sync.hidden = !c;
+    if (off) off.hidden = !c;
+    if (!c) {
+      cloudSetHint('未配置。配置后手机和电脑打开同一个网址就是同一份数据，不用再来回导出导入。', '');
+      return;
+    }
+    cloudSetHint((c.platform === 'gitee' ? 'Gitee' : 'GitHub') + '：' + c.owner + '/' + c.repo +
+                 ' · ' + cloudFile(c) + '（' + cloudBranch(c) + '）', '');
+  }
+
+  function openCloudSheet() {
+    var c = cloudConf() || {};
+    $('cPlatform').value = c.platform || 'github';
+    $('cOwner').value = c.owner || '';
+    $('cRepo').value = c.repo || '';
+    $('cBranch').value = c.branch || '';
+    $('cPath').value = c.path || '';
+    $('cToken').value = c.token || '';
+    $('cloudMask').hidden = false;
+    $('cloudSheet').hidden = false;
+  }
+
+  function closeCloudSheet() {
+    $('cloudMask').hidden = true;
+    $('cloudSheet').hidden = true;
+  }
+
+  function saveCloudForm() {
+    var c = {
+      platform: $('cPlatform').value,
+      owner: $('cOwner').value.trim(),
+      repo: $('cRepo').value.trim(),
+      branch: $('cBranch').value.trim(),
+      path: $('cPath').value.trim() || '礼金数据.json',
+      token: $('cToken').value.trim()
+    };
+    if (!c.owner || !c.repo || !c.token) { toast('用户名、仓库名、令牌都要填'); return; }
+    saveCloudConf(c);
+    closeCloudSheet();
+    toast('已保存，开始第一次同步');
+    cloudSync(false);
   }
 
   /* ============ 事件绑定 ============ */
@@ -3148,6 +3463,19 @@ window.SEED_PEOPLE = [
     $('fileImport').onchange = function () {
       if (this.files && this.files[0]) importDataFile(this.files[0]);
       this.value = '';            // 允许再导入同一个文件
+    };
+
+    // 云同步
+    $('btnCloudSetup').onclick = openCloudSheet;
+    $('btnCloudSync').onclick = function () { cloudSync(false); };
+    $('btnCloudSave').onclick = saveCloudForm;
+    $('btnCloudClose').onclick = closeCloudSheet;
+    $('cloudMask').onclick = closeCloudSheet;
+    $('btnCloudOff').onclick = function () {
+      if (!confirm('关闭云同步？数据不会删，只是这台设备不再和云端同步。')) return;
+      saveCloudConf(null);
+      closeCloudSheet();
+      toast('已关闭云同步');
     };
 
     // 键盘辅助（电脑上调试用）
