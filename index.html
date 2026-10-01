@@ -1,0 +1,3171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>礼金记账</title>
+<style>
+/* 礼金记账 · 样式（对照截图复刻） */
+
+:root {
+  --bg: #eceef0;
+  --page: #f2f3f5;
+  --card: #ffffff;
+  --line: #ededed;
+  --text: #222222;
+  --muted: #9a9a9a;
+  --accent: #a9765c;        /* 送礼主色 */
+  --accent-soft: #f0e6e0;
+  --save: #334e5a;          /* 保存按钮 */
+  --keyline: #e2e2e2;
+  --green: #1f7a1f;
+  --warn: #f7f1d8;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: none; background: none; }
+[hidden] { display: none !important; }
+
+/* ---------- 外壳 ---------- */
+.app {
+  position: relative;
+  max-width: 430px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: var(--page);
+  box-shadow: 0 0 24px rgba(0, 0, 0, .08);
+  padding-bottom: 62px;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  background: var(--page);
+}
+.topbar__title { font-size: 17px; font-weight: 600; }
+.topbar__add {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.view { padding: 0 12px 16px; }
+
+/* ---------- 保存状态 ---------- */
+.savebar {
+  margin: 0 12px 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.savebar--ok { background: #eef5ee; color: var(--green); }
+.savebar--warn { background: var(--warn); color: #8a6d3b; }
+
+/* ---------- 搜索 ---------- */
+.search { padding: 0 0 10px; }
+.search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: var(--card);
+  outline: none;
+}
+.search input:focus { border-color: var(--accent); }
+
+.summary {
+  padding: 2px 4px 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ---------- 列表 ---------- */
+.list {
+  background: var(--card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.item:last-child { border-bottom: none; }
+.item__open {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: inherit;
+}
+.item__open:active { opacity: .6; }
+.item__more {
+  flex: none;
+  margin-right: -6px;
+  padding: 2px 2px 2px 10px;
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+}
+.item__more:active { opacity: .5; }
+.item__del {
+  flex: none;
+  margin-right: -4px;
+  padding: 4px 4px 4px 8px;
+  color: #c8c8c8;
+  font-size: 17px;
+  line-height: 1;
+}
+.item__del:active { color: var(--accent); }
+
+.item__avatar {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.item__name {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.item__sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.item__sub .lunar { color: #b6b1a9; }
+.item__right { flex: none; text-align: right; }
+.item__amt { font-size: 15px; font-weight: 600; }
+.item__amt--out { color: var(--accent); }
+.item__amt--in { color: var(--green); }
+.item__amt--owe { color: var(--accent); }
+.item__amt--due { color: var(--green); }
+.item__amt--even { color: var(--muted); }
+
+.tag {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.tag--repaid { background: #e8f5e9; color: var(--green); }
+.tag--page { background: #f0f0f0; color: var(--muted); }
+.tag--in { background: #e8f5e9; color: var(--green); }
+.tag--owe { background: #fdeceb; color: var(--accent); }
+.tag--due { background: #e8f5e9; color: var(--green); }
+.tag--even { background: #f0f0f0; color: var(--muted); }
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* ---------- 分段控件 ---------- */
+.segs {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+.segs__btn {
+  flex: 1;
+  height: 34px;
+  border-radius: 17px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.segs__btn.is-active { background: var(--accent); color: #fff; }
+.segs--mini { padding-bottom: 8px; }
+.segs--scroll { overflow-x: auto; scrollbar-width: none; }
+.segs--scroll::-webkit-scrollbar { display: none; }
+.segs--scroll .segs__btn { flex: none; padding: 0 15px; }
+.segs--mini .segs__btn { height: 28px; font-size: 12.5px; }
+
+/* ---------- 卡片 / 面板 ---------- */
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.card {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  padding: 12px 10px;
+  background: var(--card);
+  border-radius: 12px;
+  text-align: center;
+}
+.card__label { color: var(--muted); font-size: 12px; }
+.card__num { margin-top: 4px; font-size: 19px; font-weight: 600; }
+.card__num--out { color: var(--accent); }
+.card__num--in { color: var(--green); }
+
+.panel {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--card);
+  border-radius: 12px;
+}
+.panel__title {
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.hint {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--line);
+}
+.bar:last-child { border-bottom: none; }
+.bar__name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar__val { flex: none; font-weight: 600; }
+.bar--link { cursor: pointer; }
+.bar--link:active { opacity: .55; }
+.bar--link .bar__val::after { content: ' ›'; color: #c8c8c8; font-weight: 400; }
+.bar__val--owe { color: var(--accent); }
+.bar__val--due { color: var(--green); }
+.bar__track {
+  flex: none;
+  width: 78px; height: 6px;
+  border-radius: 3px;
+  background: #f0f0f0;
+  overflow: hidden;
+}
+.bar__fill { height: 100%; background: var(--accent); border-radius: 3px; }
+
+.wide-btn {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: var(--save);
+  color: #fff;
+  font-size: 15px;
+}
+.wide-btn--ghost {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+/* ---------- 底部 Tab ---------- */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  width: 100%;
+  max-width: 430px;
+  height: 58px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+.tabbar__btn {
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+.tabbar__btn.is-active { color: var(--accent); font-weight: 600; }
+
+/* ---------- 记礼面板 ---------- */
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, .35);
+  animation: fade .18s ease-out;
+}
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+
+.sheet {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  width: 100%;
+  max-width: 430px;
+  max-height: 96vh;
+  overflow-y: auto;
+  background: #f7f7f7;
+  border-radius: 16px 16px 0 0;
+  animation: rise .22s cubic-bezier(.2, .8, .3, 1);
+}
+@keyframes rise { from { transform: translate(-50%, 100%) } to { transform: translate(-50%, 0) } }
+
+.sheet__handle {
+  width: 36px; height: 4px;
+  margin: 8px auto 4px;
+  border-radius: 2px;
+  background: #dcdcdc;
+}
+
+/* 记礼方向：我送他 / 他送我 */
+.dir-switch { margin: 4px 12px 0; }
+
+.amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0 22px;
+}
+.amount__cur { font-size: 22px; color: #444; }
+.amount__num { font-size: 40px; font-weight: 500; letter-spacing: .5px; }
+.amount__caret {
+  width: 2px; height: 34px;
+  margin-left: 2px;
+  background: var(--accent);
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
+
+.rows {
+  margin: 0 12px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: none; }
+.row__label {
+  flex: none;
+  width: 42px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.row__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+}
+.row__input::placeholder { color: var(--muted); }
+.row__value { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; }
+.row__arrow { flex: none; color: #c8c8c8; font-size: 18px; }
+
+.row--item { padding: 8px 14px; }
+.chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 9px;
+  border: 1px solid var(--keyline);
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  font-size: 13px;
+  transition: all .12s;
+}
+.chip i { font-style: normal; color: var(--accent); font-size: 12px; }
+.chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.row--date { cursor: pointer; }
+.row--date:active { background: #fafafa; }
+/* 「不详」按钮要压在日期输入框之上才点得到 */
+.row__unknown {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  margin-right: 8px;
+  padding: 3px 9px;
+  border-radius: 11px;
+  background: #f2f2f2;
+  color: var(--muted);
+  font-size: 12px;
+}
+.row__unknown.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.row__date {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+}
+
+/* ---------- 数字键盘 ---------- */
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 1.15fr;
+  gap: 8px;
+  padding: 14px 12px;
+}
+.pad__key {
+  height: 56px;
+  border: 1px solid var(--keyline);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 21px;
+  transition: background .1s;
+}
+.pad__key:active { background: #f0f0f0; }
+.pad__key--save {
+  grid-column: 4;
+  grid-row: 2 / span 3;
+  height: auto;
+  background: var(--save);
+  border-color: var(--save);
+  color: #fff;
+  font-size: 17px;
+}
+.pad__key--save:active { background: #263c46; }
+.pad__key[data-k="0"] { grid-column: span 2; }
+
+/* ---------- 人员详情 ---------- */
+.page {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  max-width: 430px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+  overflow-y: auto;
+  background: var(--page);
+}
+.page__bar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 8px;
+  background: var(--page);
+}
+.page__back { padding: 0 8px; color: var(--accent); font-size: 15px; }
+.page__title { font-size: 16px; font-weight: 600; }
+
+.detail__head {
+  margin: 0 12px 12px;
+  padding: 14px;
+  background: var(--card);
+  border-radius: 12px;
+}
+.detail__name { font-size: 19px; font-weight: 600; }
+.detail__meta { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+.settle { margin-top: 10px; }
+.settle__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.settle__row--sum {
+  margin-top: 5px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.settle__row--sum.is-owe { color: var(--accent); }
+.settle__row--sum.is-due { color: var(--green); }
+.settle__row--sum.is-even { color: var(--muted); }
+.detail__repaid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.detail__acts { padding: 0 12px; }
+.page .panel { margin: 0 12px 12px; }
+.page .list { background: transparent; }
+.page .item { background: var(--card); border-bottom: 1px solid var(--line); }
+
+/* 开关 */
+.switch {
+  position: relative;
+  width: 46px; height: 26px;
+  border-radius: 13px;
+  background: #dcdcdc;
+  transition: background .15s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .15s;
+}
+.switch.is-on { background: var(--green); }
+.switch.is-on::after { transform: translateX(20px); }
+
+/* 提示条 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 90px;
+  z-index: 60;
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, .8);
+  color: #fff;
+  font-size: 13.5px;
+  animation: fade .15s ease-out;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <span class="topbar__title">礼金记账</span>
+    <button class="topbar__add" id="btnAddPerson" title="新增人员">+</button>
+  </header>
+
+  <!-- 数据保存状态（已存到文件 / 没连上服务） -->
+  <div class="savebar" id="saveBar" hidden></div>
+
+  <!-- ========== 人员 ========== -->
+  <main class="view" id="viewPeople">
+    <div class="search">
+      <input type="search" id="searchInput" placeholder="搜索姓名" autocomplete="off">
+    </div>
+    <div class="segs segs--scroll" id="peopleFilter">
+      <button class="segs__btn is-active" data-paid="all">全部</button>
+      <button class="segs__btn" data-paid="owe">我欠他</button>
+      <button class="segs__btn" data-paid="due">他欠我</button>
+      <button class="segs__btn" data-paid="even">两清</button>
+      <button class="segs__btn" data-paid="yes">已还</button>
+      <button class="segs__btn" data-paid="no">未还</button>
+    </div>
+    <div class="summary" id="peopleSummary"></div>
+    <div class="list" id="peopleList"></div>
+    <div class="empty" id="peopleEmpty" hidden>没有符合条件的人</div>
+  </main>
+
+  <!-- ========== 记录 ========== -->
+  <main class="view" id="viewRecords" hidden>
+    <div class="segs segs--scroll" id="recYearFilter"></div>
+    <div class="segs segs--scroll" id="recItemFilter"></div>
+    <div class="summary" id="recordSummary"></div>
+    <div class="list" id="recordList"></div>
+    <div class="empty" id="recordEmpty" hidden>还没有任何记录</div>
+  </main>
+
+  <!-- ========== 统计 ========== -->
+  <main class="view" id="viewStats" hidden>
+    <div class="cards" id="statCards"></div>
+    <div class="panel">
+      <div class="panel__title">往来结算</div>
+      <div id="statSettle"></div>
+    </div>
+    <div class="panel">
+      <div class="panel__title">按礼项</div>
+      <div id="statByItem"></div>
+    </div>
+    <div class="panel">
+      <div class="panel__title">时间统计</div>
+      <div class="segs segs--mini" id="statRange">
+        <button class="segs__btn is-active" data-range="month">按月</button>
+        <button class="segs__btn" data-range="year">按年</button>
+      </div>
+      <div id="statByTime"></div>
+    </div>
+    <div class="panel">
+      <div class="panel__title">已还情况</div>
+      <div id="statRepaid"></div>
+    </div>
+    <button class="wide-btn" id="btnExportAll">导出全部记录（CSV）</button>
+    <button class="wide-btn wide-btn--ghost" id="btnExportXlsx">导出 Excel（人员往来 + 往来记录）</button>
+
+    <!-- 换设备 / 手机→电脑 汇总：导出这个文件，到另一台设备上导入合并 -->
+    <div class="panel">
+      <div class="panel__title">数据备份与合并</div>
+      <div class="hint">手机和电脑各记各的，用这两个按钮合到一起。</div>
+      <button class="wide-btn wide-btn--ghost" id="btnExportData">导出数据文件（.json）</button>
+      <button class="wide-btn wide-btn--ghost" id="btnImportData">导入并合并数据</button>
+      <input type="file" id="fileImport" accept=".json,application/json" hidden>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tabbar__btn is-active" data-tab="people">人员</button>
+    <button class="tabbar__btn" data-tab="records">记录</button>
+    <button class="tabbar__btn" data-tab="stats">统计</button>
+  </nav>
+</div>
+
+<!-- ========== 记礼面板 ========== -->
+<div class="mask" id="sheetMask" hidden></div>
+<section class="sheet" id="giftSheet" hidden>
+  <div class="sheet__handle"></div>
+
+  <!-- 记礼方向：我送他（送礼）/ 他送我（收礼） -->
+  <div class="segs segs--mini dir-switch" id="dirSwitch">
+    <button class="segs__btn is-active" data-dir="out">我送他</button>
+    <button class="segs__btn" data-dir="in">他送我</button>
+  </div>
+
+  <div class="amount">
+    <span class="amount__cur">¥</span><span class="amount__num" id="amountText">0.00</span><span class="amount__caret"></span>
+  </div>
+
+  <div class="rows">
+    <label class="row">
+      <span class="row__label">姓名</span>
+      <input class="row__input" id="fName" placeholder="输入姓名" autocomplete="off">
+    </label>
+
+    <div class="row row--item">
+      <span class="row__label">礼项</span>
+      <div class="chips" id="chips">
+        <button class="chip" data-item="婚礼"><i>♡</i>婚礼</button>
+        <button class="chip" data-item="满月"><i>☾</i>满月</button>
+        <button class="chip" data-item="生日"><i>✿</i>生日</button>
+        <button class="chip" data-item="乔迁"><i>⌂</i>乔迁</button>
+        <button class="chip" data-item="满岁">满岁</button>
+        <button class="chip" data-item="升学">升学</button>
+        <button class="chip" data-item="丧事">丧事</button>
+        <button class="chip" data-item="其他">其他</button>
+      </div>
+    </div>
+
+    <div class="row row--date">
+      <span class="row__label">日期</span>
+      <span class="row__value" id="dateText">今天</span>
+      <button class="row__unknown" id="btnUnknownDate" type="button" title="记不住具体日期">不详</button>
+      <span class="row__arrow">›</span>
+      <input type="date" class="row__date" id="fDate">
+    </div>
+
+    <label class="row">
+      <span class="row__label">备注</span>
+      <input class="row__input" id="fNote" placeholder="添加备注" autocomplete="off">
+    </label>
+  </div>
+
+  <div class="pad" id="pad">
+    <button class="pad__key" data-k="1">1</button>
+    <button class="pad__key" data-k="2">2</button>
+    <button class="pad__key" data-k="3">3</button>
+    <button class="pad__key pad__key--fn" data-k="back">‹</button>
+    <button class="pad__key" data-k="4">4</button>
+    <button class="pad__key" data-k="5">5</button>
+    <button class="pad__key" data-k="6">6</button>
+    <button class="pad__key pad__key--save" data-k="save" id="btnSave">保存</button>
+    <button class="pad__key" data-k="7">7</button>
+    <button class="pad__key" data-k="8">8</button>
+    <button class="pad__key" data-k="9">9</button>
+    <button class="pad__key" data-k="0">0</button>
+    <button class="pad__key" data-k="dot">.</button>
+  </div>
+</section>
+
+<!-- ========== 人员详情 ========== -->
+<section class="page" id="personDetail" hidden>
+  <header class="page__bar">
+    <button class="page__back" id="btnDetailBack">‹ 返回</button>
+    <span class="page__title" id="detailTitle">人员</span>
+  </header>
+  <div class="detail__head" id="detailHead"></div>
+  <div class="panel">
+    <div class="panel__title">往来记录</div>
+    <div class="list" id="detailList"></div>
+    <div class="empty" id="detailEmpty" hidden>还没有往来记录</div>
+  </div>
+  <div class="detail__acts">
+    <button class="wide-btn" id="btnDetailGift">给他记一笔</button>
+    <button class="wide-btn wide-btn--ghost" id="btnExportOne">导出此人记录（CSV）</button>
+  </div>
+</section>
+
+<!-- 单文件版：数据存在本机浏览器里，换设备用「导出数据文件 / 导入并合并」 -->
+<script>
+window.STANDALONE = true;
+// 初始名单：由 礼金登记表.xlsx 导出，共 171 位
+window.SEED_PEOPLE = [
+ {
+  "id": "p1",
+  "name": "范斌",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p2",
+  "name": "汤伟",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p3",
+  "name": "杨吉国",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p4",
+  "name": "何天茂",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p5",
+  "name": "杨锋",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p6",
+  "name": "杨福南",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p7",
+  "name": "杨如章",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p8",
+  "name": "杨延彪",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p9",
+  "name": "杨延凯",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p10",
+  "name": "杨延俊",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p11",
+  "name": "杨吉波",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p12",
+  "name": "杨吉荣",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p13",
+  "name": "郑明华",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p14",
+  "name": "吴洁如",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p15",
+  "name": "郑明轩",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p16",
+  "name": "吴昌明",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p17",
+  "name": "谭必禄",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p18",
+  "name": "赵礼成",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p19",
+  "name": "薛前明",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p20",
+  "name": "梁涛",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p21",
+  "name": "尹国贵",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p22",
+  "name": "向雄",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p23",
+  "name": "向立保",
+  "gift": 400,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p24",
+  "name": "王帝荣",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p25",
+  "name": "谢作红",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p26",
+  "name": "赵德保",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p27",
+  "name": "陈德甫",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p28",
+  "name": "王平",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p29",
+  "name": "王嫚",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p30",
+  "name": "黄金国",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p31",
+  "name": "梅彪",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p32",
+  "name": "周军",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p33",
+  "name": "向必政",
+  "gift": 400,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p34",
+  "name": "向阳华",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p35",
+  "name": "杨应友",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p36",
+  "name": "何天顺",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p37",
+  "name": "毛平",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p38",
+  "name": "董传靖",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p39",
+  "name": "王华",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p40",
+  "name": "石国荣",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p41",
+  "name": "周权(沙地)",
+  "gift": 400,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p42",
+  "name": "马雪萍",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p43",
+  "name": "赵业炳",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p44",
+  "name": "汤永宜",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p45",
+  "name": "严学安",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p46",
+  "name": "向必明",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p47",
+  "name": "向必军",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p48",
+  "name": "王学清",
+  "gift": 1000,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p49",
+  "name": "孙兵",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p50",
+  "name": "向必伦",
+  "gift": 2000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p51",
+  "name": "郑开成",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p52",
+  "name": "郑海云",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p53",
+  "name": "崔定权",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p54",
+  "name": "郑明涛",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p55",
+  "name": "杨杰",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p56",
+  "name": "郑东云",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p57",
+  "name": "刘沛",
+  "gift": 2000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p58",
+  "name": "彭进权",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p59",
+  "name": "文昌清",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p60",
+  "name": "许兴兵",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p61",
+  "name": "周佳芝",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p62",
+  "name": "毛成林",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p63",
+  "name": "杨如宽",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p64",
+  "name": "杨如泰",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p65",
+  "name": "杨瑞",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p66",
+  "name": "向吉洲",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p67",
+  "name": "郑青云",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p68",
+  "name": "邱凯云",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p69",
+  "name": "郑明科",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p70",
+  "name": "向伟",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p71",
+  "name": "周奎(黄家亚)",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p72",
+  "name": "何天德",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p73",
+  "name": "刘诗齐",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p74",
+  "name": "张元忠",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p75",
+  "name": "陈飞",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p76",
+  "name": "陈朝兵",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p77",
+  "name": "向宏",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p78",
+  "name": "周祥玉",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p79",
+  "name": "朱宁",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p80",
+  "name": "向必志",
+  "gift": 1000,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p81",
+  "name": "向必祥",
+  "gift": 1000,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p82",
+  "name": "周佳宇",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p83",
+  "name": "杨廷忠",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p84",
+  "name": "杨如清",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p85",
+  "name": "毛成忠",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p86",
+  "name": "毛成云",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p87",
+  "name": "汤吉华",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p88",
+  "name": "杨巨伦",
+  "gift": 2000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p89",
+  "name": "杨小平",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p90",
+  "name": "杨志宏",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p91",
+  "name": "杨圣贤",
+  "gift": 2000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p92",
+  "name": "陈朝胜",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p93",
+  "name": "陈正举",
+  "gift": 100,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p94",
+  "name": "陈正德",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p95",
+  "name": "陈丰",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p96",
+  "name": "陈小双",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p97",
+  "name": "陈正林",
+  "gift": 5000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p98",
+  "name": "王华清",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p99",
+  "name": "谭章凯",
+  "gift": 200,
+  "repaid": false,
+  "note": "姓氏有涂改（原似梁）"
+ },
+ {
+  "id": "p100",
+  "name": "周权(三花平)",
+  "gift": 200,
+  "repaid": true,
+  "note": "原注“(欧坪)”被划去；与照片48周权(沙地)非同一人"
+ },
+ {
+  "id": "p101",
+  "name": "周传平",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p102",
+  "name": "李伟",
+  "gift": 1000,
+  "repaid": true,
+  "note": "蓝笔注“R他200”"
+ },
+ {
+  "id": "p103",
+  "name": "郑玉成",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p104",
+  "name": "汪如召",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p105",
+  "name": "周林",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p106",
+  "name": "周涛",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p107",
+  "name": "曾照明",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p108",
+  "name": "王月清",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p109",
+  "name": "郑明阳",
+  "gift": 400,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p110",
+  "name": "王佑成",
+  "gift": 200,
+  "repaid": true,
+  "note": "原书对勾对应本列"
+ },
+ {
+  "id": "p111",
+  "name": "吴海萍",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p112",
+  "name": "吴登锋",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p113",
+  "name": "胡凯",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p114",
+  "name": "杨吉友",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p115",
+  "name": "张传平",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p116",
+  "name": "周传德",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p117",
+  "name": "周祥松",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p118",
+  "name": "张学美",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p119",
+  "name": "程灼远",
+  "gift": 300,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p120",
+  "name": "毛成新",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p121",
+  "name": "郑玉清",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p122",
+  "name": "周传秀",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p123",
+  "name": "周传锋",
+  "gift": 200,
+  "repaid": false,
+  "note": "金额有涂改（300改200）"
+ },
+ {
+  "id": "p124",
+  "name": "杨如海",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p125",
+  "name": "杨如仙",
+  "gift": 200,
+  "repaid": true,
+  "note": "名字末字不清"
+ },
+ {
+  "id": "p126",
+  "name": "王家才",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p127",
+  "name": "周顺",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p128",
+  "name": "向帅",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p129",
+  "name": "向必红",
+  "gift": 4000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p130",
+  "name": "向必松",
+  "gift": 4000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p131",
+  "name": "向圣杰",
+  "gift": 600,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p132",
+  "name": "向福森",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p133",
+  "name": "李传彪",
+  "gift": 100,
+  "repaid": false,
+  "note": "名字末字不清（勉/彪）"
+ },
+ {
+  "id": "p134",
+  "name": "王学元",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p135",
+  "name": "何敏",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p136",
+  "name": "何天祥",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p137",
+  "name": "何天奎",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p138",
+  "name": "刘子红",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p139",
+  "name": "周卫",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p140",
+  "name": "向康吉",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p141",
+  "name": "王启胜",
+  "gift": 200,
+  "repaid": false,
+  "note": "顶部似有淡勾痕，请复核"
+ },
+ {
+  "id": "p142",
+  "name": "邹必艾",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p143",
+  "name": "黄建芳",
+  "gift": 300,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p144",
+  "name": "黄家顺",
+  "gift": 100,
+  "repaid": true,
+  "note": "顶部似有淡勾痕，请复核"
+ },
+ {
+  "id": "p145",
+  "name": "杨权",
+  "gift": 2000,
+  "repaid": false,
+  "note": "名字有涂改不清"
+ },
+ {
+  "id": "p146",
+  "name": "郑明魁",
+  "gift": 200,
+  "repaid": false,
+  "note": "名字末字不清（麟/琳）"
+ },
+ {
+  "id": "p147",
+  "name": "杨吉平",
+  "gift": 50000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p148",
+  "name": "郭彩龙",
+  "gift": 1000,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p149",
+  "name": "郑华云",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p150",
+  "name": "姚志权",
+  "gift": 1000,
+  "repaid": false,
+  "note": "原注“500+500 (生)(清月)”"
+ },
+ {
+  "id": "p151",
+  "name": "王任恒",
+  "gift": 500,
+  "repaid": false,
+  "note": "原注“200(汪婉玉)+”"
+ },
+ {
+  "id": "p152",
+  "name": "邓文双",
+  "gift": 400,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p153",
+  "name": "王启海",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p154",
+  "name": "汤吉兴",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p155",
+  "name": "汤勇",
+  "gift": 500,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p156",
+  "name": "汤吉福",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p157",
+  "name": "刘平",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p158",
+  "name": "汤蛟",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p159",
+  "name": "谭开龙",
+  "gift": 200,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p160",
+  "name": "谭敏",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p161",
+  "name": "周家富",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p162",
+  "name": "董雄",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p163",
+  "name": "许兴林",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p164",
+  "name": "许兴谷",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p165",
+  "name": "许怀普",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p166",
+  "name": "刘坤银",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p167",
+  "name": "郑明学",
+  "gift": 500,
+  "repaid": true,
+  "note": ""
+ },
+ {
+  "id": "p168",
+  "name": "向吉胜",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p169",
+  "name": "郑良成",
+  "gift": 100,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p170",
+  "name": "郑兴界",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ },
+ {
+  "id": "p171",
+  "name": "胡举祥",
+  "gift": 200,
+  "repaid": false,
+  "note": ""
+ }
+];
+
+/* 礼金记账 · 交互逻辑（数据存项目里的「礼金数据.json」，由 server.py 读写） */
+(function () {
+  'use strict';
+
+  /* 本机存的那份（手机 / 托管到网上时用）；旧版本用的 key 只在第一次读到搬过来时用一下 */
+  var LOCAL_KEY = 'giftbook.data';
+  var OLD_KEY = 'giftbook.v1';
+
+  /* ============ 存储 ============
+     两种模式，页面自己判断，不用用户选：
+     1) 电脑上双击「启动礼金.bat」打开 → 数据写进项目里的「礼金数据.json」（server.py 负责）
+     2) 手机上打开 / 传到静态托管 → 没有服务，数据存在这台设备的浏览器里
+     不管哪种模式，本地都再留一份，换设备时用「导出数据文件 → 导入并合并」汇总。 */
+  var connected = true;      // 是否连上了本地服务（决定 Excel 导出能不能用）
+
+  var SAVE_URL = '/api/save';
+  // 用 file:// 老方式打开时，相对地址连不上服务，退回本地服务的绝对地址
+  var SAVE_URL_ABS = 'http://127.0.0.1:8787/api/save';
+
+  function localData() {
+    try {
+      var raw = localStorage.getItem(LOCAL_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;              // 浏览器不让存（无痕模式等）也不影响页面能用
+    }
+  }
+
+  var store = {
+    save: function (data) {
+      // 先无条件在本机留一份：就算服务没起来，数据也不会丢
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) { /* 存不了就算了 */ }
+
+      if (typeof fetch !== 'function') { setSaveState('local'); return; }
+      var opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      };
+      function done(r) { setSaveState(r && r.ok ? 'file' : 'local'); }
+      fetch(SAVE_URL, opts).then(done)['catch'](function () {
+        // 单文件版（发布/礼金记账.html）是给手机和托管用的，不许回连电脑上的服务
+        if (location.protocol === 'file:' && !window.STANDALONE) {
+          fetch(SAVE_URL_ABS, opts).then(done)['catch'](function () { setSaveState('local'); });
+        } else {
+          setSaveState('local');
+        }
+      });
+    }
+  };
+
+  function setSaveState(kind) {
+    connected = kind === 'file';
+    var el = $('saveBar');
+    if (!el) return;
+    var d = new Date();
+    var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    el.hidden = false;
+    el.className = 'savebar savebar--' + (kind === 'file' ? 'ok' : 'warn');
+    el.textContent = kind === 'file'
+      ? '已保存到 礼金数据.json · ' + hm
+      : '已存在这台设备的浏览器里 · ' + hm + ' · 要汇总到别的设备，去统计页点「导出数据文件」';
+  }
+
+  var state = {
+    people: [],
+    records: [],
+    tab: 'people',
+    query: '',
+    peopleFilter: 'all',
+    recYear: 'all',
+    recMonth: '',
+    recItem: 'all',
+    statRange: 'month',
+    detailId: null,
+    draft: null
+  };
+
+  /* 账本姓名订正：手写识别错字 → 正确写法（数据文件里的老记录也一并改正） */
+  var NAME_FIXES = { '江如召': '汪如召' };
+
+  function applyNameFixes() {
+    var changed = false;
+    var fix = function (o) {
+      var n = NAME_FIXES[o.name];
+      if (n) { o.name = n; changed = true; }
+    };
+    state.people.forEach(fix);
+    state.records.forEach(fix);
+    return changed;
+  }
+
+  /* ============ 初始化 ============ */
+  function init() {
+    // 数据来源优先级：服务给的（电脑上） → 本机存的（手机/托管） → 更老的那份 → 账本种子
+    var saved = window.SAVED_STATE || localData();
+    var fromFile = !!window.SAVED_STATE;
+    if (!saved) {
+      saved = (function () {
+        try {
+          var raw = localStorage.getItem(OLD_KEY);
+          if (!raw) return null;
+          localStorage.removeItem(OLD_KEY);   // 内容马上就写进 LOCAL_KEY，旧的那份可以清掉
+          return JSON.parse(raw);
+        } catch (e) { return null; }
+      })();
+    }
+    if (saved && saved.people) {
+      state.people = saved.people;
+      state.records = saved.records || [];
+      var fixed = applyNameFixes();
+      if (!fromFile || fixed) persist();
+    } else {
+      state.people = (window.SEED_PEOPLE || []).map(function (p) {
+        return { id: p.id, name: p.name, gift: p.gift, repaid: !!p.repaid, note: p.note || '' };
+      });
+      state.records = [];
+      persist();
+    }
+    bind();
+    renderPeople();
+    renderRecords();
+    renderStats();
+  }
+
+  function persist() {
+    store.save({ people: state.people, records: state.records });
+  }
+
+  /* ============ 小工具 ============ */
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function money(n) {
+    return Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  /* ============ 公历 → 农历 ============
+     内置 1900-2100 年农历数据（每年 1 个十六进制数：
+     低 4 位 = 闰月月份（0 表示无闰月）；第 5~16 位从高到低表示正月到腊月是否 30 天；
+     第 17 位（0x10000）= 闰月是否 30 天）。 */
+  var LUNAR_INFO = [
+    0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0, 0x09ad0, 0x055d2, // 1900-1909
+    0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250, 0x1d255, 0x0b540, 0x0d6a0, 0x0ada2, 0x095b0, 0x14977, // 1910-1919
+    0x04970, 0x0a4b0, 0x0b4b5, 0x06a50, 0x06d40, 0x1ab54, 0x02b60, 0x09570, 0x052f2, 0x04970, // 1920-1929
+    0x06566, 0x0d4a0, 0x0ea50, 0x06e95, 0x05ad0, 0x02b60, 0x186e3, 0x092e0, 0x1c8d7, 0x0c950, // 1930-1939
+    0x0d4a0, 0x1d8a6, 0x0b550, 0x056a0, 0x1a5b4, 0x025d0, 0x092d0, 0x0d2b2, 0x0a950, 0x0b557, // 1940-1949
+    0x06ca0, 0x0b550, 0x15355, 0x04da0, 0x0a5b0, 0x14573, 0x052b0, 0x0a9a8, 0x0e950, 0x06aa0, // 1950-1959
+    0x0aea6, 0x0ab50, 0x04b60, 0x0aae4, 0x0a570, 0x05260, 0x0f263, 0x0d950, 0x05b57, 0x056a0, // 1960-1969
+    0x096d0, 0x04dd5, 0x04ad0, 0x0a4d0, 0x0d4d4, 0x0d250, 0x0d558, 0x0b540, 0x0b5a0, 0x195a6, // 1970-1979
+    0x095b0, 0x049b0, 0x0a974, 0x0a4b0, 0x0b27a, 0x06a50, 0x06d40, 0x0af46, 0x0ab60, 0x09570, // 1980-1989
+    0x04af5, 0x04970, 0x064b0, 0x074a3, 0x0ea50, 0x06b58, 0x055c0, 0x0ab60, 0x096d5, 0x092e0, // 1990-1999
+    0x0c960, 0x0d954, 0x0d4a0, 0x0da50, 0x07552, 0x056a0, 0x0abb7, 0x025d0, 0x092d0, 0x0cab5, // 2000-2009
+    0x0a950, 0x0b4a0, 0x0baa4, 0x0ad50, 0x055d9, 0x04ba0, 0x0a5b0, 0x15176, 0x052b0, 0x0a930, // 2010-2019
+    0x07954, 0x06aa0, 0x0ad50, 0x05b52, 0x04b60, 0x0a6e6, 0x0a4e0, 0x0d260, 0x0ea65, 0x0d530, // 2020-2029
+    0x05aa0, 0x076a3, 0x096d0, 0x04afb, 0x04ad0, 0x0a4d0, 0x1d0b6, 0x0d250, 0x0d520, 0x0dd45, // 2030-2039
+    0x0b5a0, 0x056d0, 0x055b2, 0x049b0, 0x0a577, 0x0a4b0, 0x0aa50, 0x1b255, 0x06d20, 0x0ada0, // 2040-2049
+    0x14b63, 0x09370, 0x049f8, 0x04970, 0x064b0, 0x168a6, 0x0ea50, 0x06b20, 0x1a6c4, 0x0aae0, // 2050-2059
+    0x0a2e0, 0x0d2e3, 0x0c960, 0x0d557, 0x0d4a0, 0x0da50, 0x05d55, 0x056a0, 0x0a6d0, 0x055d4, // 2060-2069
+    0x052d0, 0x0a9b8, 0x0a950, 0x0b4a0, 0x0b6a6, 0x0ad50, 0x055a0, 0x0aba4, 0x0a5b0, 0x052b0, // 2070-2079
+    0x0b273, 0x06930, 0x07337, 0x06aa0, 0x0ad50, 0x14b55, 0x04b60, 0x0a570, 0x054e4, 0x0d160, // 2080-2089
+    0x0e968, 0x0d520, 0x0daa0, 0x16aa6, 0x056d0, 0x04ae0, 0x0a9d4, 0x0a2d0, 0x0d150, 0x0f252, // 2090-2099
+    0x0d520                                                                                    // 2100
+  ];
+  var LUNAR_MONTHS = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '腊'];
+  var LUNAR_DAY_PRE = ['初', '十', '廿', '三'];
+  var LUNAR_DAY_SUF = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+
+  function leaps(y) { return LUNAR_INFO[y - 1900] & 0xf; }
+  function leapDays(y) { return leaps(y) ? ((LUNAR_INFO[y - 1900] & 0x10000) ? 30 : 29) : 0; }
+  function monthDays(y, m) { return (LUNAR_INFO[y - 1900] & (0x10000 >> m)) ? 30 : 29; }
+
+  function yearDays(y) {
+    var sum = 348;                                   // 12 个月各按 29 天打底
+    for (var i = 0x8000; i > 0x8; i >>= 1) {
+      sum += (LUNAR_INFO[y - 1900] & i) ? 1 : 0;      // 每月多出的 1 天
+    }
+    return sum + leapDays(y);
+  }
+
+  /* 公历年月日 → { year, month, day, isLeap }；超出 1900-2100 返回 null */
+  function solarToLunar(y, m, d) {
+    var offset = Math.round(
+      (Date.UTC(y, m - 1, d) - Date.UTC(1900, 0, 31)) / 86400000);
+    if (offset < 0 || y > 2100) return null;
+
+    var i, temp = 0;
+    for (i = 1900; i < 2101 && offset > 0; i++) {
+      temp = yearDays(i);
+      offset -= temp;
+    }
+    if (offset < 0) { offset += temp; i--; }
+    var year = i;
+
+    var leap = leaps(year);
+    var isLeap = false;
+    for (i = 1; i < 13 && offset > 0; i++) {
+      if (leap > 0 && i === leap + 1 && isLeap === false) {
+        --i; isLeap = true; temp = leapDays(year);
+      } else {
+        temp = monthDays(year, i);
+      }
+      if (isLeap === true && i === leap + 1) isLeap = false;
+      offset -= temp;
+    }
+    if (offset === 0 && leap > 0 && i === leap + 1) {
+      if (isLeap) { isLeap = false; } else { isLeap = true; --i; }
+    }
+    if (offset < 0) { offset += temp; --i; }
+    return { year: year, month: i, day: offset + 1, isLeap: isLeap };
+  }
+
+  function lunarDayName(d) {
+    if (d === 10) return '初十';
+    if (d === 20) return '二十';
+    if (d === 30) return '三十';
+    return LUNAR_DAY_PRE[Math.floor(d / 10)] + LUNAR_DAY_SUF[(d - 1) % 10];
+  }
+
+  /* "2026-10-01" → "农历八月二十"；无法识别返回 '' */
+  function lunarText(s) {
+    var p = String(s || '').split('-');
+    if (p.length !== 3) return '';
+    var l = solarToLunar(+p[0], +p[1], +p[2]);
+    if (!l) return '';
+    return '农历' + (l.isLeap ? '闰' : '') +
+      LUNAR_MONTHS[l.month - 1] + '月' + lunarDayName(l.day);
+  }
+
+  /* 公历 + 农历，用于记录行的副标题；没填日期显示「日期不详」 */
+  function dateLine(s) {
+    if (!s) return '日期不详';
+    var g = fmtDate(s);
+    if (!g) return '';
+    var l = lunarText(s);
+    return esc(g) + (l ? ' <span class="lunar">' + esc(l) + '</span>' : '');
+  }
+
+  /* 取日期里的年份；无法识别返回 '' */
+  function yearOf(s) {
+    var m = String(s || '').match(/^(\d{4})/);
+    return m ? m[1] : '';
+  }
+
+  /* 一律显示完整的年月日 */
+  function fmtDate(s) {
+    if (!s) return '';
+    var p = String(s).split('-');
+    if (p.length !== 3) return String(s);
+    return (+p[0]) + '年' + (+p[1]) + '月' + (+p[2]) + '日';
+  }
+
+  function findPersonByName(name) {
+    for (var i = 0; i < state.people.length; i++) {
+      if (state.people[i].name === name) return state.people[i];
+    }
+    return null;
+  }
+
+  /* ============ 往来结算 ============
+     他送我 = 原账本礼金(gift) + 收礼记录(dir === 'in')
+     我送他 = 送礼记录（dir 为 'out' 或老数据没写 dir）
+     diff > 0 他欠我（我多送了）；diff < 0 我欠他（还没还清）
+     书本打勾 = 当时确实还过（只是记不住日期、还没补记）：一条记录都没补时算两清；
+     一旦补记了记录，就以记录为准，该怎么算就怎么算。 */
+  function isIn(r) { return r.dir === 'in'; }
+
+  function balanceOf(p) {
+    var paid = 0, got = 0, count = 0;
+    state.records.forEach(function (r) {
+      if (r.personId !== p.id) return;
+      if (isIn(r)) got += Number(r.amount || 0);
+      else paid += Number(r.amount || 0);
+      count++;
+    });
+    var gift = Number(p.gift || 0);
+    var diff = Math.round((paid - gift - got) * 100) / 100;
+    var st;
+    if (p.repaid && count === 0) {
+      diff = 0;
+      st = 'even';
+    } else {
+      st = diff > 0 ? 'due' : (diff < 0 ? 'owe' : 'even');
+    }
+    return { gift: gift, paid: paid, got: got, count: count, diff: diff, state: st };
+  }
+
+  function balanceText(st) {
+    return st === 'owe' ? '我欠他' : (st === 'due' ? '他欠我' : '两清');
+  }
+
+  function findPerson(id) {
+    for (var i = 0; i < state.people.length; i++) {
+      if (state.people[i].id === id) return state.people[i];
+    }
+    return null;
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var old = document.querySelector('.toast');
+    if (old) old.remove();
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.remove(); }, 1800);
+  }
+
+  /* ============ Tab 切换 ============ */
+  function switchTab(tab) {
+    state.tab = tab;
+    ['people', 'records', 'stats'].forEach(function (t) {
+      $('view' + cap(t)).hidden = t !== tab;
+    });
+    var btns = $('tabbar').querySelectorAll('.tabbar__btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle('is-active', btns[i].dataset.tab === tab);
+    }
+  }
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* all / owe（我欠他）/ due（他欠我）/ even（两清）/ yes、no（书本打勾） */
+  function matchPeopleFilter(p) {
+    var f = state.peopleFilter;
+    if (f === 'all') return true;
+    if (f === 'yes') return !!p.repaid;
+    if (f === 'no') return !p.repaid;
+    return balanceOf(p).state === f;
+  }
+
+  function syncPeopleFilter() {
+    var btns = $('peopleFilter').querySelectorAll('.segs__btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle('is-active', btns[i].dataset.paid === state.peopleFilter);
+    }
+  }
+
+  /* 切到人员页并按指定条件筛选（统计页下钻用） */
+  function showPeople(filter) {
+    state.peopleFilter = filter;
+    state.query = '';
+    $('searchInput').value = '';
+    syncPeopleFilter();
+    renderPeople();
+    switchTab('people');
+  }
+
+  /* 姓名排序：中文按拼音 A-Z，同音时保持原账本顺序（sort 本身稳定）。
+     多音字姓氏 ICU 只认常用读音（曾→céng），这里先换成同音字再比较 */
+  var SURNAME_HOMOPHONE = { '曾': '增' };
+  var nameCollator = null;
+
+  function sortKey(name) {
+    var h = SURNAME_HOMOPHONE[name.charAt(0)];
+    return h ? h + name.slice(1) : name;
+  }
+
+  function byName(a, b) {
+    if (!nameCollator) {
+      try {
+        nameCollator = new Intl.Collator('zh-Hans-CN');
+      } catch (e) {
+        nameCollator = { compare: function (x, y) { return x < y ? -1 : (x > y ? 1 : 0); } };
+      }
+    }
+    return nameCollator.compare(sortKey(a.name), sortKey(b.name));
+  }
+
+  /* ============ 人员列表 ============ */
+  function renderPeople() {
+    var q = state.query.trim();
+    var list = state.people.filter(function (p) {
+      if (q && p.name.indexOf(q) < 0) return false;
+      return matchPeopleFilter(p);
+    });
+    list.sort(byName);   // 首页按姓名 A-Z
+
+    var total = 0, repaidCnt = 0;
+    state.people.forEach(function (p) {
+      total += Number(p.gift || 0);
+      if (p.repaid) repaidCnt++;
+    });
+    var parts = ['共 ' + state.people.length + ' 人',
+                 '原账本合计 ' + money(total) + ' 元',
+                 '已还 ' + repaidCnt + ' 人'];
+    if (q || state.peopleFilter !== 'all') parts.push('筛出 ' + list.length + ' 人');
+    $('peopleSummary').textContent = parts.join(' · ');
+
+    var html = '';
+    list.forEach(function (p) {
+      var b = balanceOf(p);
+      var sub = '原账本 ' + money(b.gift) + ' · 我送 ' + money(b.paid);
+      if (b.got > 0) sub += ' · 另收 ' + money(b.got);
+
+      html += '<div class="item">' +
+        '<button class="item__open" data-detail="' + p.id + '">' +
+        '<span class="item__avatar">' + esc(p.name.charAt(0)) + '</span>' +
+        '<span class="item__main">' +
+        '<span class="item__name">' + esc(p.name) + '</span>' +
+        '<span class="item__sub">' + esc(sub) + '</span>' +
+        '</span>' +
+        '<span class="item__right">' +
+        '<span class="item__amt item__amt--' + b.state + '">' + money(Math.abs(b.diff)) + '</span>' +
+        '<br><span class="tag tag--' + b.state + '">' + balanceText(b.state) + '</span>' +
+        '</span>' +
+        '</button>' +
+        '<button class="item__more" data-gift="' + p.id + '" title="给他记一笔">+</button>' +
+        '</div>';
+    });
+
+    $('peopleList').innerHTML = html;
+    $('peopleEmpty').hidden = list.length > 0;
+  }
+
+  /* ============ 记录列表 ============ */
+  function renderRecords() {
+    var all = state.records.slice()
+      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+
+    // 年份筛选（按年份统计）
+    var years = [];
+    all.forEach(function (r) {
+      var y = yearOf(r.date);
+      if (y && years.indexOf(y) < 0) years.push(y);
+    });
+    years.sort(function (a, b) { return b - a; });
+    if (state.recYear !== 'all' && years.indexOf(state.recYear) < 0) state.recYear = 'all';
+
+    function cnt(y) {
+      return all.filter(function (r) { return yearOf(r.date) === y; }).length;
+    }
+    var noMonth = !state.recMonth;
+    var chips = '<button class="segs__btn' + (state.recYear === 'all' && noMonth ? ' is-active' : '') +
+      '" data-year="all">全部（' + all.length + '）</button>';
+    years.forEach(function (y) {
+      chips += '<button class="segs__btn' + (state.recYear === y && noMonth ? ' is-active' : '') +
+        '" data-year="' + y + '">' + y + ' 年（' + cnt(y) + '）</button>';
+    });
+    if (state.recMonth) {
+      chips += '<button class="segs__btn is-active" data-month="clear" title="取消月份筛选">' +
+        state.recMonth.slice(0, 4) + ' 年 ' + (+state.recMonth.slice(5, 7)) + ' 月 ✕</button>';
+    }
+    $('recYearFilter').innerHTML = chips;
+    $('recYearFilter').hidden = all.length === 0;
+
+    // 礼项筛选
+    var tally = {};
+    all.forEach(function (r) {
+      var k = r.item || '未选礼项';
+      tally[k] = tally[k] || { n: 0, val: 0 };
+      tally[k].n++;
+      tally[k].val += Number(r.amount || 0);
+    });
+    var items = Object.keys(tally).sort(function (a, b) { return tally[b].val - tally[a].val; });
+    if (state.recItem !== 'all' && items.indexOf(state.recItem) < 0) state.recItem = 'all';
+
+    var ichips = '<button class="segs__btn' + (state.recItem === 'all' ? ' is-active' : '') +
+      '" data-item="all">全部礼项</button>';
+    items.forEach(function (k) {
+      ichips += '<button class="segs__btn' + (state.recItem === k ? ' is-active' : '') +
+        '" data-item="' + esc(k) + '">' + esc(k) + '（' + tally[k].n + '）</button>';
+    });
+    $('recItemFilter').innerHTML = ichips;
+    $('recItemFilter').hidden = all.length === 0;
+
+    var rs = all.filter(function (r) {
+      if (state.recYear !== 'all' && yearOf(r.date) !== state.recYear) return false;
+      if (state.recMonth && String(r.date || '').slice(0, 7) !== state.recMonth) return false;
+      if (state.recItem !== 'all' && (r.item || '未选礼项') !== state.recItem) return false;
+      return true;
+    });
+
+    var outSum = 0, inSum = 0;
+    rs.forEach(function (r) {
+      if (isIn(r)) inSum += Number(r.amount || 0);
+      else outSum += Number(r.amount || 0);
+    });
+    var sums = [];
+    if (outSum > 0) sums.push('送出 ' + money(outSum));
+    if (inSum > 0) sums.push('收到 ' + money(inSum));
+
+    var desc = [];
+    if (state.recMonth) {
+      desc.push(state.recMonth.slice(0, 4) + ' 年 ' + (+state.recMonth.slice(5, 7)) + ' 月');
+    } else if (state.recYear !== 'all') {
+      desc.push(state.recYear + ' 年');
+    }
+    if (state.recItem !== 'all') desc.push(state.recItem);
+
+    $('recordSummary').textContent =
+      (desc.length ? desc.join(' · ') + ' · ' : '') + '共 ' + rs.length + ' 笔' +
+      (sums.length ? ' · ' + sums.join(' · ') + ' 元' : '');
+    $('recordSummary').hidden = all.length === 0;
+
+    var html = '';
+    rs.forEach(function (r) {
+      var inn = isIn(r);
+      html += '<div class="item">' +
+        '<span class="item__avatar">' + esc(r.name.charAt(0)) + '</span>' +
+        '<span class="item__main">' +
+        '<span class="item__name">' + esc(r.name) +
+        ' <span class="tag tag--' + (inn ? 'in' : 'page') + '">' + (inn ? '收礼' : '送礼') + '</span>' +
+        ' <span class="tag tag--page">' + esc(r.item || '未选礼项') + '</span></span>' +
+        '<span class="item__sub">' + dateLine(r.date) +
+        (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
+        '</span>' +
+        '<span class="item__right"><span class="item__amt item__amt--' + (inn ? 'in' : 'out') + '">' +
+        (inn ? '+' : '-') + money(r.amount) + '</span></span>' +
+        '<button class="item__del" data-del="' + r.id + '" title="删除这条记录">×</button>' +
+        '</div>';
+    });
+
+    $('recordList').innerHTML = html;
+    $('recordEmpty').hidden = rs.length > 0;
+  }
+
+  /* ============ 统计 ============ */
+  function renderStats() {
+    var outAmt = 0, inAmt = 0, names = {};
+    state.records.forEach(function (r) {
+      var v = Number(r.amount || 0);
+      if (isIn(r)) inAmt += v;
+      else outAmt += v;
+      names[r.personId] = 1;
+    });
+
+    // 总收入礼金 = 原账本礼金合计（人家送我的）+ 另记的收礼
+    var giftTotal = 0;
+    state.people.forEach(function (p) { giftTotal += Number(p.gift || 0); });
+
+    $('statCards').innerHTML =
+      card('总收入礼金', money(giftTotal + inAmt), 'in') +
+      card('总送礼', money(outAmt), 'out') +
+      card('记录笔数', state.records.length, '') +
+      card('涉及人数', Object.keys(names).length, '');
+
+    // 往来结算
+    var owe = 0, oweN = 0, due = 0, dueN = 0, evenN = 0;
+    state.people.forEach(function (p) {
+      var b = balanceOf(p);
+      if (b.state === 'owe') { owe -= b.diff; oweN++; }
+      else if (b.state === 'due') { due += b.diff; dueN++; }
+      else evenN++;
+    });
+    $('statSettle').innerHTML =
+      barRow('我还欠他们 · ' + oweN + ' 人', money(owe), 'bar__val--owe', ' data-settle="owe"') +
+      barRow('他们欠我（我多送）· ' + dueN + ' 人', money(due), 'bar__val--due', ' data-settle="due"') +
+      barRow('已两清', evenN + ' 人', '', ' data-settle="even"') +
+      '<div class="bar"><span class="bar__name">净差额（他欠我 − 我欠他）</span>' +
+      '<span class="bar__val">' + money(due - owe) + '</span></div>';
+
+    // 按礼项
+    var byItem = {};
+    state.records.forEach(function (r) {
+      var k = r.item || '未选礼项';
+      byItem[k] = byItem[k] || { val: 0, n: 0 };
+      byItem[k].val += Number(r.amount || 0);
+      byItem[k].n++;
+    });
+    var itemRows = Object.keys(byItem).map(function (k) {
+      return { name: k, val: byItem[k].val, n: byItem[k].n,
+               attr: ' data-item="' + esc(k) + '"' };
+    }).sort(function (a, b) { return b.val - a.val; });
+    $('statByItem').innerHTML = itemRows.length
+      ? barList(itemRows)
+      : '<div class="empty">暂无数据</div>';
+
+    // 按时间（月 / 年）
+    renderTimeStats();
+
+    // 已还
+    var repaid = state.people.filter(function (p) { return p.repaid; });
+    var unpaid = state.people.filter(function (p) { return !p.repaid; });
+    var sum = function (arr) {
+      return arr.reduce(function (a, p) { return a + Number(p.gift || 0); }, 0);
+    };
+    $('statRepaid').innerHTML =
+      barRow('已还 ' + repaid.length + ' 人', money(sum(repaid)) + ' 元', '', ' data-paid="yes"') +
+      barRow('未还 ' + unpaid.length + ' 人', money(sum(unpaid)) + ' 元', '', ' data-paid="no"');
+  }
+
+  /* ============ 时间统计（按月 / 按年） ============ */
+  function renderTimeStats() {
+    var isYear = state.statRange === 'year';
+    var by = {};
+    state.records.forEach(function (r) {
+      var k = (r.date || '').slice(0, isYear ? 4 : 7) || 'none';
+      by[k] = by[k] || { val: 0, n: 0 };
+      by[k].val += Number(r.amount || 0);
+      by[k].n++;
+    });
+
+    var keys = Object.keys(by).sort().reverse().filter(function (k) { return k !== 'none'; });
+    if (by.none) keys.push('none');
+
+    if (!keys.length) {
+      $('statByTime').innerHTML = '<div class="empty">暂无数据</div>';
+      return;
+    }
+
+    $('statByTime').innerHTML = keys.map(function (k) {
+      var g = by[k];
+      var name, attr = '';
+      if (k === 'none') {
+        name = '日期不详';
+      } else if (isYear) {
+        name = k + ' 年';
+        attr = ' data-span="' + k + '"';
+      } else {
+        name = k.slice(0, 4) + ' 年 ' + (+k.slice(5, 7)) + ' 月';
+        attr = ' data-span="' + k + '"';
+      }
+      return barRow(esc(name) + '（' + g.n + ' 笔）', money(g.val), '', attr);
+    }).join('');
+  }
+
+  function card(label, num, cls) {
+    return '<div class="card"><div class="card__label">' + label + '</div>' +
+      '<div class="card__num' + (cls ? ' card__num--' + cls : '') + '">' + num + '</div></div>';
+  }
+
+  /* attr 形如 ' data-item="婚礼"'；有 attr 的行可点击下钻 */
+  function barRow(name, val, cls, attr) {
+    return '<div class="bar' + (attr ? ' bar--link' : '') + '"' + (attr || '') + '>' +
+      '<span class="bar__name">' + name + '</span>' +
+      '<span class="bar__val' + (cls ? ' ' + cls : '') + '">' + val + '</span>' +
+      '</div>';
+  }
+
+  function barList(rows) {
+    var max = rows.reduce(function (a, r) { return Math.max(a, r.val); }, 0) || 1;
+    return rows.map(function (r) {
+      var pct = Math.max(4, Math.round(r.val / max * 100));
+      return '<div class="bar' + (r.attr ? ' bar--link' : '') + '"' + (r.attr || '') + '>' +
+        '<span class="bar__name">' + esc(r.name) + (r.n ? '（' + r.n + ' 笔）' : '') + '</span>' +
+        '<span class="bar__track"><span class="bar__fill" style="width:' + pct + '%"></span></span>' +
+        '<span class="bar__val">' + money(r.val) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ============ 记礼面板 ============ */
+  function openSheet(person) {
+    state.draft = {
+      amount: '',
+      name: person ? person.name : '',
+      item: '',
+      date: todayStr(),
+      note: '',
+      dir: 'out',                 // out = 我送他（送礼），in = 他送我（收礼）
+      personId: person ? person.id : null
+    };
+    $('fName').value = state.draft.name;
+    $('fNote').value = '';
+    $('fDate').value = state.draft.date;
+    syncDateRow();
+    syncDirSwitch();
+    setChips('');
+    renderAmount();
+    $('sheetMask').hidden = false;
+    $('giftSheet').hidden = false;
+  }
+
+  /* 方向按钮：我送他（送礼）/ 他送我（收礼） */
+  function syncDirSwitch() {
+    var d = state.draft ? state.draft.dir : 'out';
+    var bs = $('dirSwitch').querySelectorAll('.segs__btn');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].classList.toggle('is-active', bs[i].dataset.dir === d);
+    }
+  }
+
+  /* 日期行：有日期显示「公历 + 农历」，点了「不详」就显示「日期不详」 */
+  function syncDateRow() {
+    var d = state.draft ? state.draft.date : '';
+    $('dateText').textContent = d
+      ? (fmtDate(d) + ' ' + lunarText(d)).trim()
+      : '日期不详';
+    $('btnUnknownDate').classList.toggle('is-active', !d);
+  }
+
+  function closeSheet() {
+    $('sheetMask').hidden = true;
+    $('giftSheet').hidden = true;
+    state.draft = null;
+  }
+
+  function setChips(item) {
+    if (!state.draft) return;
+    state.draft.item = item;
+    var cs = $('chips').querySelectorAll('.chip');
+    for (var i = 0; i < cs.length; i++) {
+      cs[i].classList.toggle('is-active', cs[i].dataset.item === item);
+    }
+  }
+
+  function renderAmount() {
+    $('amountText').textContent = state.draft && state.draft.amount !== '' ? state.draft.amount : '0.00';
+  }
+
+  function pressKey(k) {
+    if (!state.draft) return;
+    var a = state.draft.amount;
+
+    if (k === 'back') {
+      state.draft.amount = a.slice(0, -1);
+    } else if (k === 'dot') {
+      if (a.indexOf('.') < 0) state.draft.amount = (a === '' ? '0' : a) + '.';
+    } else if (k >= '0' && k <= '9') {
+      if (a.indexOf('.') >= 0 && a.split('.')[1].length >= 2) return; // 最多两位小数
+      if (a.replace('.', '').length >= 9) return;                     // 长度上限
+      state.draft.amount = a === '0' ? k : a + k;
+    }
+    renderAmount();
+  }
+
+  function saveRecord() {
+    if (!state.draft) return;
+    var d = state.draft;
+    var name = $('fName').value.trim();
+    var amount = parseFloat(d.amount);
+
+    if (!name) { toast('请填写姓名'); return; }
+    if (!(amount > 0)) { toast('请用键盘输入金额'); return; }
+
+    var person = d.personId ? findPerson(d.personId) : findPersonByName(name);
+    if (name !== (person ? person.name : '')) person = findPersonByName(name);
+    if (!person) {
+      // 账本外的人：账本礼金记 0，我送他的钱靠这条记录体现
+      person = { id: 'p' + Date.now(), name: name, gift: 0, repaid: false, note: '' };
+      state.people.push(person);
+    }
+
+    var dir = d.dir === 'in' ? 'in' : 'out';
+
+    state.records.push({
+      id: 'r' + Date.now(),
+      personId: person.id,
+      name: person.name,
+      dir: dir,
+      amount: amount,
+      item: d.item,
+      date: $('fDate').value,      // 空 = 日期不详（补记以前的礼时记不住哪天）
+      note: $('fNote').value.trim(),
+      ts: Date.now()
+    });
+
+    persist();
+    closeSheet();
+    renderPeople();
+    renderRecords();
+    renderStats();
+    toast('已记' + (dir === 'in' ? '收礼' : '送礼') + ' ' + money(amount) + ' 元 · ' + person.name);
+  }
+
+  /* ============ 删除记录 ============ */
+  function deleteRecord(id) {
+    var idx = -1;
+    for (var i = 0; i < state.records.length; i++) {
+      if (state.records[i].id === id) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var r = state.records[idx];
+    if (!confirm('确定删除「' + r.name + '」这条' +
+                 (isIn(r) ? '收礼' : '送礼') + ' ' + money(r.amount) + ' 元？')) return;
+
+    state.records.splice(idx, 1);
+    persist();
+    renderPeople();
+    renderRecords();
+    renderStats();
+    if (state.detailId) renderDetail();
+    toast('已删除 1 条记录');
+  }
+
+  /* ============ 人员详情 ============ */
+  function openDetail(id) {
+    state.detailId = id;
+    renderDetail();
+    $('personDetail').hidden = false;
+  }
+
+  function closeDetail() {
+    state.detailId = null;
+    $('personDetail').hidden = true;
+  }
+
+  function renderDetail() {
+    var p = findPerson(state.detailId);
+    if (!p) { closeDetail(); return; }
+    var rs = state.records.filter(function (r) { return r.personId === p.id; })
+      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+
+    var b = balanceOf(p);
+    var outRows = rs.filter(function (r) { return !isIn(r); });
+    var inRows = rs.filter(isIn);
+
+    $('detailTitle').textContent = p.name;
+    $('detailHead').innerHTML =
+      '<div class="detail__name">' + esc(p.name) + '</div>' +
+      (p.note ? '<div class="detail__meta">原书备注：' + esc(p.note) + '</div>' : '') +
+      '<div class="settle">' +
+      '<div class="settle__row"><span>他送我（原账本礼金）</span><span>' + money(b.gift) + '</span></div>' +
+      (b.got > 0
+        ? '<div class="settle__row"><span>他送我（另记 ' + inRows.length + ' 笔）</span><span>' +
+          money(b.got) + '</span></div>'
+        : '') +
+      '<div class="settle__row"><span>我送他（' + outRows.length + ' 笔）</span><span>' + money(b.paid) + '</span></div>' +
+      '<div class="settle__row settle__row--sum is-' + b.state + '">' +
+      '<span>' + balanceText(b.state) + '</span>' +
+      '<span>' + (b.state === 'even' ? '0.00' : money(Math.abs(b.diff))) + '</span></div>' +
+      '</div>' +
+      '<div class="detail__repaid"><span>礼金已还（打勾）</span>' +
+      '<button class="switch' + (p.repaid ? ' is-on' : '') + '" id="swRepaid"></button></div>';
+
+    var html = rs.map(function (r) {
+      var inn = isIn(r);
+      return '<div class="item">' +
+        '<span class="item__main">' +
+        '<span class="item__name"><span class="tag tag--' + (inn ? 'in' : 'page') + '">' +
+        (inn ? '收礼' : '送礼') + '</span> ' + esc(r.item || '未选礼项') + '</span>' +
+        '<span class="item__sub">' + dateLine(r.date) + (r.note ? ' · ' + esc(r.note) : '') + '</span>' +
+        '</span>' +
+        '<span class="item__right"><span class="item__amt item__amt--' + (inn ? 'in' : 'out') + '">' +
+        (inn ? '+' : '-') + money(r.amount) + '</span></span>' +
+        '<button class="item__del" data-del="' + r.id + '" title="删除这条记录">×</button>' +
+        '</div>';
+    }).join('');
+
+    $('detailList').innerHTML = html;
+    $('detailEmpty').hidden = rs.length > 0;
+
+    $('swRepaid').onclick = function () {
+      p.repaid = !p.repaid;
+      persist();
+      renderDetail();
+      renderPeople();
+      renderStats();
+    };
+  }
+
+  /* ============ 导出 CSV ============ */
+  function download(filename, rows) {
+    var csv = rows.map(function (r) {
+      return r.map(function (c) {
+        var s = String(c == null ? '' : c);
+        return '"' + s.replace(/"/g, '""') + '"';
+      }).join(',');
+    }).join('\r\n');
+
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function stamp() {
+    var d = new Date();
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+  }
+
+  function exportAll() {
+    if (!state.records.length) { toast('还没有记录可导出'); return; }
+    var rows = [['姓名', '方向', '金额（元）', '礼项', '日期', '备注']];
+    state.records.slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); })
+      .forEach(function (r) {
+        rows.push([r.name, isIn(r) ? '收礼' : '送礼', r.amount,
+                   r.item || '', r.date || '日期不详', r.note || '']);
+      });
+    download('礼金记录_' + stamp() + '.csv', rows);
+    toast('已导出 ' + state.records.length + ' 条记录');
+  }
+
+  function exportOne() {
+    var p = findPerson(state.detailId);
+    if (!p) return;
+    var rs = state.records.filter(function (r) { return r.personId === p.id; })
+      .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
+    if (!rs.length) { toast('这个人还没有记录'); return; }
+    var rows = [['姓名', '方向', '金额（元）', '礼项', '日期', '备注']];
+    rs.forEach(function (r) {
+      rows.push([r.name, isIn(r) ? '收礼' : '送礼', r.amount,
+                 r.item || '', r.date || '日期不详', r.note || '']);
+    });
+    download('礼金记录_' + p.name + '_' + stamp() + '.csv', rows);
+    toast('已导出 ' + rs.length + ' 条记录');
+  }
+
+  /* ============ 数据备份与合并 ============
+     手机和电脑各存各的，靠这个 json 文件来回搬：
+     在手机点「导出数据文件」→ 把文件发给自己 → 电脑上点「导入并合并」。 */
+  function exportDataFile() {
+    var body = JSON.stringify({ people: state.people, records: state.records }, null, 2);
+    var name = '礼金数据_' + stamp() + '.json';
+    var blob = new Blob([body], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast('已导出 ' + name + '（' + state.people.length + ' 人 / ' +
+          state.records.length + ' 笔）');
+  }
+
+  /* 按 id 合并；认不出 id 就按姓名认同一人，避免同一人两边各建一条 */
+  function mergeData(obj) {
+    var byId = {}, byName = {};
+    state.people.forEach(function (p) {
+      byId[p.id] = p;
+      if (p.name) byName[p.name] = p;
+    });
+
+    var idMap = {};                       // 对方文件的 personId → 本机的 personId
+    var addedP = 0, mergedP = 0;
+
+    (obj.people || []).forEach(function (q) {
+      if (!q || !q.id || !q.name) return;
+      var p = byId[q.id] || byName[q.name];
+      if (!p) {
+        state.people.push({ id: q.id, name: q.name, gift: Number(q.gift || 0),
+                            repaid: !!q.repaid, note: q.note || '' });
+        byId[q.id] = state.people[state.people.length - 1];
+        byName[q.name] = byId[q.id];
+        idMap[q.id] = q.id;
+        addedP++;
+        return;
+      }
+      idMap[q.id] = p.id;
+      // 同一个人：打勾只进不退，礼金和备注只在本地缺的时候补
+      var changed = false;
+      if (Number(p.gift || 0) === 0 && Number(q.gift || 0) !== 0) { p.gift = Number(q.gift); changed = true; }
+      if (!p.repaid && q.repaid) { p.repaid = true; changed = true; }
+      if (!p.note && q.note) { p.note = q.note; changed = true; }
+      if (changed) mergedP++;
+    });
+
+    var seen = {};
+    state.records.forEach(function (r) { seen[r.id] = 1; });
+    var addedR = 0;
+
+    (obj.records || []).forEach(function (r) {
+      if (!r || !r.id || seen[r.id]) return;      // 同一笔重复导入不会翻倍
+      seen[r.id] = 1;
+      var pid = idMap[r.personId] || r.personId;
+      if (pid && !byId[pid]) {
+        var np = { id: pid, name: r.name || '', gift: 0, repaid: false, note: '' };
+        state.people.push(np);
+        byId[pid] = np;
+        if (np.name) byName[np.name] = np;
+        addedP++;
+      }
+      state.records.push({
+        id: r.id, personId: pid, name: r.name || '', dir: r.dir === 'in' ? 'in' : 'out',
+        amount: Number(r.amount || 0), item: r.item || '', date: r.date || '',
+        note: r.note || '', ts: r.ts || 0
+      });
+      addedR++;
+    });
+
+    return { people: addedP, records: addedR, merged: mergedP };
+  }
+
+  function importDataFile(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var obj = null;
+      try { obj = JSON.parse(fr.result); } catch (e) { obj = null; }
+      if (!obj || !obj.people || !obj.people.length) {
+        toast('这个文件读不出人员数据，换个文件试试');
+        return;
+      }
+      var r = mergeData(obj);
+      persist();
+      renderPeople();
+      renderRecords();
+      renderStats();
+      var msg = '合并完成：新增 ' + r.people + ' 人 / ' + r.records + ' 笔';
+      if (r.merged) msg += '，更新 ' + r.merged + ' 人的信息';
+      if (!r.people && !r.records && !r.merged) msg = '这份数据和现在的完全一样，没有变化';
+      toast(msg);
+    };
+    fr.onerror = function () { toast('文件读不了，换个文件试试'); };
+    fr.readAsText(file);
+  }
+
+  /* ============ 事件绑定 ============ */
+  function bind() {
+    // 底部 Tab
+    document.querySelectorAll('.tabbar__btn').forEach(function (b) {
+      b.onclick = function () { switchTab(b.dataset.tab); };
+    });
+
+    // 搜索
+    $('searchInput').oninput = function () {
+      state.query = this.value;
+      renderPeople();
+    };
+
+    // 人员筛选（全部 / 我欠他 / 他欠我 / 两清 / 已还 / 未还）
+    $('peopleFilter').querySelectorAll('.segs__btn').forEach(function (b) {
+      b.onclick = function () {
+        state.peopleFilter = b.dataset.paid;
+        syncPeopleFilter();
+        renderPeople();
+      };
+    });
+
+    // 记录按年份筛选（年份按钮是动态重建的，用事件委托）
+    $('recYearFilter').onclick = function (e) {
+      if (e.target.closest('[data-month]')) { state.recMonth = ''; renderRecords(); return; }
+      var b = e.target.closest('[data-year]');
+      if (!b) return;
+      state.recYear = b.dataset.year;
+      state.recMonth = '';
+      renderRecords();
+    };
+
+    // 记录按礼项筛选
+    $('recItemFilter').onclick = function (e) {
+      var b = e.target.closest('[data-item]');
+      if (!b) return;
+      state.recItem = b.dataset.item;
+      renderRecords();
+    };
+
+    /* ---- 统计页下钻：点每一行跳去对应列表 ---- */
+    // 往来结算 → 人员页对应筛选
+    $('statSettle').onclick = function (e) {
+      var b = e.target.closest('[data-settle]');
+      if (!b) return;
+      showPeople(b.dataset.settle);
+    };
+
+    // 按礼项 → 记录页筛选该礼项
+    $('statByItem').onclick = function (e) {
+      var b = e.target.closest('[data-item]');
+      if (!b) return;
+      state.recItem = b.dataset.item;
+      state.recYear = 'all';
+      state.recMonth = '';
+      renderRecords();
+      switchTab('records');
+    };
+
+    // 时间统计 → 记录页筛选该月 / 该年
+    $('statByTime').onclick = function (e) {
+      var b = e.target.closest('[data-span]');
+      if (!b) return;
+      var s = b.dataset.span;
+      if (s.length === 7) { state.recYear = s.slice(0, 4); state.recMonth = s; }
+      else { state.recYear = s; state.recMonth = ''; }
+      state.recItem = 'all';
+      renderRecords();
+      switchTab('records');
+    };
+
+    // 已还情况 → 人员页已还 / 未还
+    $('statRepaid').onclick = function (e) {
+      var b = e.target.closest('[data-paid]');
+      if (!b) return;
+      showPeople(b.dataset.paid);
+    };
+
+    // 按月 / 按年
+    $('statRange').querySelectorAll('.segs__btn').forEach(function (b) {
+      b.onclick = function () {
+        state.statRange = b.dataset.range;
+        $('statRange').querySelectorAll('.segs__btn').forEach(function (x) {
+          x.classList.toggle('is-active', x === b);
+        });
+        renderTimeStats();
+      };
+    });
+
+    // 人员列表（事件委托）
+    $('peopleList').onclick = function (e) {
+      var g = e.target.closest('[data-gift]');
+      if (g) { openSheet(findPerson(g.dataset.gift)); return; }
+      var det = e.target.closest('[data-detail]');
+      if (det) { openDetail(det.dataset.detail); }
+    };
+
+    // 删除送礼记录（记录列表 + 人员详情，事件委托）
+    [$('recordList'), $('detailList')].forEach(function (box) {
+      box.onclick = function (e) {
+        var del = e.target.closest('[data-del]');
+        if (del) deleteRecord(del.dataset.del);
+      };
+    });
+
+    // 新增人员
+    $('btnAddPerson').onclick = function () { openSheet(null); };
+
+    // 记礼面板
+    // 方向：我送他（送礼）/ 他送我（收礼）
+    $('dirSwitch').onclick = function (e) {
+      var b = e.target.closest('[data-dir]');
+      if (!b || !state.draft) return;
+      state.draft.dir = b.dataset.dir;
+      syncDirSwitch();
+    };
+    $('chips').querySelectorAll('.chip').forEach(function (c) {
+      c.onclick = function () {
+        setChips(state.draft && state.draft.item === c.dataset.item ? '' : c.dataset.item);
+      };
+    });
+    $('fName').oninput = function () {
+      if (state.draft) state.draft.personId = (findPersonByName(this.value.trim()) || {}).id || null;
+    };
+    // 日期输入框铺满整行但透明，浏览器默认只有右侧小图标会弹日历，
+    // 这里补一刀：点这一行任意位置都主动唤起日历（不支持的浏览器保持原生行为）
+    $('fDate').onclick = function () {
+      if (typeof this.showPicker === 'function') {
+        try { this.showPicker(); } catch (e) { /* 已在弹出中或无用户手势，忽略 */ }
+      }
+    };
+    $('fDate').onchange = function () {
+      if (state.draft) state.draft.date = this.value;
+      syncDateRow();
+    };
+    // 补记以前的还礼时想不起是哪天：点一下就不填日期
+    $('btnUnknownDate').onclick = function () {
+      if (!state.draft) return;
+      state.draft.date = state.draft.date ? '' : todayStr();
+      $('fDate').value = state.draft.date;
+      syncDateRow();
+    };
+    $('sheetMask').onclick = closeSheet;
+
+    $('pad').onclick = function (e) {
+      var k = e.target.closest('[data-k]');
+      if (!k) return;
+      if (k.dataset.k === 'save') saveRecord();
+      else pressKey(k.dataset.k);
+    };
+
+    // 人员详情
+    $('btnDetailBack').onclick = closeDetail;
+    $('btnDetailGift').onclick = function () {
+      var p = findPerson(state.detailId);
+      closeDetail();
+      openSheet(p);
+    };
+    $('btnExportOne').onclick = exportOne;
+
+    // 导出
+    $('btnExportAll').onclick = exportAll;
+    $('btnExportXlsx').onclick = function () {
+      if (!connected) {
+        toast('Excel 要靠电脑上的本地服务生成，手机上请用下面两个按钮');
+        return;
+      }
+      window.location.href = '/api/export.xlsx';
+      toast('正在生成 Excel…');
+    };
+
+    // 数据备份与合并
+    $('btnExportData').onclick = exportDataFile;
+    $('btnImportData').onclick = function () { $('fileImport').click(); };
+    $('fileImport').onchange = function () {
+      if (this.files && this.files[0]) importDataFile(this.files[0]);
+      this.value = '';            // 允许再导入同一个文件
+    };
+
+    // 键盘辅助（电脑上调试用）
+    document.addEventListener('keydown', function (e) {
+      if (!state.draft) {
+        if (e.key === 'Escape' && !$('personDetail').hidden) closeDetail();
+        return;
+      }
+      if (e.key === 'Escape') closeSheet();
+      else if (e.key === 'Enter') saveRecord();
+      else if (e.key === 'Backspace') pressKey('back');
+      else if (e.key === '.') pressKey('dot');
+      else if (/^[0-9]$/.test(e.key)) pressKey(e.key);
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
