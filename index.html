@@ -136,6 +136,15 @@ button { cursor: pointer; border: none; background: none; }
   line-height: 1;
 }
 .item__more:active { opacity: .5; }
+.item__edit {
+  flex: none;
+  padding: 4px 4px 4px 8px;
+  color: #c8c8c8;
+  font-size: 14px;
+  line-height: 1;
+}
+.item__edit:active { color: var(--accent); }
+
 .item__del {
   flex: none;
   margin-right: -4px;
@@ -1258,6 +1267,19 @@ window.STANDALONE = true;
     return null;
   }
 
+  function findRecord(id) {
+    for (var i = 0; i < state.records.length; i++) {
+      if (state.records[i].id === id) return state.records[i];
+    }
+    return null;
+  }
+
+  /* 金额填回键盘时去掉没意义的小数尾巴：150.00 → 150、12.50 → 12.5 */
+  function trimZero(n) {
+    var s = String(Number(n || 0));
+    return s === '0' ? '' : s;
+  }
+
   var toastTimer = null;
   function toast(msg) {
     var old = document.querySelector('.toast');
@@ -1471,6 +1493,7 @@ window.STANDALONE = true;
         '</span>' +
         '<span class="item__right"><span class="item__amt item__amt--' + (inn ? 'in' : 'out') + '">' +
         (inn ? '+' : '-') + money(r.amount) + '</span></span>' +
+        '<button class="item__edit" data-edit="' + r.id + '" title="改这条记录">✎</button>' +
         '<button class="item__del" data-del="' + r.id + '" title="删除这条记录">×</button>' +
         '</div>';
     });
@@ -1613,14 +1636,40 @@ window.STANDALONE = true;
       date: todayStr(),
       note: '',
       dir: 'out',                 // out = 我送他（送礼），in = 他送我（收礼）
-      personId: person ? person.id : null
+      personId: person ? person.id : null,
+      editId: null                // 有值 = 在改一条已有的记录，而不是新记一笔
     };
-    $('fName').value = state.draft.name;
-    $('fNote').value = '';
-    $('fDate').value = state.draft.date;
+    fillSheet();
+  }
+
+  /* 改一条已有的记录：把它的内容填回面板，保存时原地更新，不新增一笔 */
+  function editRecord(id) {
+    var r = findRecord(id);
+    if (!r) return;
+    state.draft = {
+      amount: trimZero(r.amount),
+      name: r.name,
+      item: r.item || '',
+      date: r.date || '',
+      note: r.note || '',
+      dir: isIn(r) ? 'in' : 'out',
+      personId: r.personId || null,
+      editId: r.id
+    };
+    fillSheet();
+    toast('改完点「保存修改」');
+  }
+
+  /* 把 state.draft 铺到面板上（新增和修改共用） */
+  function fillSheet() {
+    var d = state.draft;
+    $('fName').value = d.name;
+    $('fNote').value = d.note;
+    $('fDate').value = d.date;
+    $('btnSave').textContent = d.editId ? '保存修改' : '保存';
     syncDateRow();
     syncDirSwitch();
-    setChips('');
+    setChips(d.item);
     renderAmount();
     $('sheetMask').hidden = false;
     $('giftSheet').hidden = false;
@@ -1697,25 +1746,35 @@ window.STANDALONE = true;
     }
 
     var dir = d.dir === 'in' ? 'in' : 'out';
-
-    state.records.push({
-      id: 'r' + Date.now(),
+    var fields = {
       personId: person.id,
       name: person.name,
       dir: dir,
       amount: amount,
       item: d.item,
       date: $('fDate').value,      // 空 = 日期不详（补记以前的礼时记不住哪天）
-      note: $('fNote').value.trim(),
-      ts: Date.now()
-    });
+      note: $('fNote').value.trim()
+    };
+
+    var old = d.editId ? findRecord(d.editId) : null;
+    if (old) {
+      // 改的是一条已有记录：原地更新，id 和 ts 都不动，免得它在列表里跳位置
+      for (var k in fields) old[k] = fields[k];
+    } else {
+      fields.id = 'r' + Date.now();
+      fields.ts = Date.now();
+      state.records.push(fields);
+    }
 
     persist();
     closeSheet();
     renderPeople();
     renderRecords();
     renderStats();
-    toast('已记' + (dir === 'in' ? '收礼' : '送礼') + ' ' + money(amount) + ' 元 · ' + person.name);
+    if (state.detailId) renderDetail();
+    toast(old
+      ? '已改成' + (dir === 'in' ? '收礼' : '送礼') + ' ' + money(amount) + ' 元 · ' + person.name
+      : '已记' + (dir === 'in' ? '收礼' : '送礼') + ' ' + money(amount) + ' 元 · ' + person.name);
   }
 
   /* ============ 删除记录 ============ */
@@ -1789,6 +1848,7 @@ window.STANDALONE = true;
         '</span>' +
         '<span class="item__right"><span class="item__amt item__amt--' + (inn ? 'in' : 'out') + '">' +
         (inn ? '+' : '-') + money(r.amount) + '</span></span>' +
+        '<button class="item__edit" data-edit="' + r.id + '" title="改这条记录">✎</button>' +
         '<button class="item__del" data-del="' + r.id + '" title="删除这条记录">×</button>' +
         '</div>';
     }).join('');
@@ -2220,9 +2280,11 @@ window.STANDALONE = true;
       if (det) { openDetail(det.dataset.detail); }
     };
 
-    // 删除送礼记录（记录列表 + 人员详情，事件委托）
+    // 改 / 删记录（记录列表 + 人员详情，事件委托）
     [$('recordList'), $('detailList')].forEach(function (box) {
       box.onclick = function (e) {
+        var ed = e.target.closest('[data-edit]');
+        if (ed) { editRecord(ed.dataset.edit); return; }
         var del = e.target.closest('[data-del]');
         if (del) deleteRecord(del.dataset.del);
       };
