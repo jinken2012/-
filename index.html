@@ -274,6 +274,46 @@ button { cursor: pointer; border: none; background: none; }
   background: transparent;
 }
 
+/* ---------- 连接页（首次访问：验过令牌才显示数据） ---------- */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow-y: auto;
+  background: var(--page);
+}
+
+.gate__box {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 12vh 16px 32px;
+}
+
+.gate__title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.gate__sub {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.gate .rows {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+  margin-bottom: 18px;
+}
+
+.gate__msg:empty { display: none; }
+.gate__msg { margin-top: 14px; text-align: center; }
+
 .bar {
   display: flex;
   align-items: center;
@@ -608,7 +648,34 @@ button { cursor: pointer; border: none; background: none; }
 </head>
 <body>
 
-<div class="app">
+<!-- ========== 首次访问 / 换设备：先连上数据仓库 ==========
+     验过令牌才显示内容；没验过一个人名、一笔金额都不出来。 -->
+<section class="gate" id="gate">
+  <div class="gate__box">
+    <h1 class="gate__title">礼金记账</h1>
+    <p class="gate__sub">
+      数据放在你自己的 Gitee 仓库里。账号、仓库、令牌都填对、验证通过之后，才会显示内容。
+    </p>
+    <div class="rows">
+      <label class="row">
+        <span class="row__label">账号</span>
+        <input class="row__input" id="gOwner" value="classjing" autocomplete="off">
+      </label>
+      <label class="row">
+        <span class="row__label">仓库</span>
+        <input class="row__input" id="gRepo" value="renqing" autocomplete="off">
+      </label>
+      <label class="row">
+        <span class="row__label">访问令牌</span>
+        <input class="row__input" id="gToken" type="password" placeholder="Gitee 私人令牌" autocomplete="off">
+      </label>
+    </div>
+    <button class="wide-btn" id="btnGateConnect">连接</button>
+    <div class="hint gate__msg" id="gateMsg"></div>
+  </div>
+</section>
+
+<div class="app" id="app" hidden>
   <header class="topbar">
     <span class="topbar__title">礼金记账</span>
     <button class="topbar__add" id="btnAddPerson" title="新增人员">+</button>
@@ -667,18 +734,6 @@ button { cursor: pointer; border: none; background: none; }
       <div class="panel__title">已还情况</div>
       <div id="statRepaid"></div>
     </div>
-    <button class="wide-btn" id="btnExportAll">导出全部记录（CSV）</button>
-    <button class="wide-btn wide-btn--ghost" id="btnExportXlsx">导出 Excel（人员往来 + 往来记录）</button>
-
-    <!-- 换设备 / 手机→电脑 汇总：导出这个文件，到另一台设备上导入合并 -->
-    <div class="panel">
-      <div class="panel__title">数据备份与合并</div>
-      <div class="hint">手机和电脑各记各的，用这两个按钮合到一起。</div>
-      <button class="wide-btn wide-btn--ghost" id="btnExportData">导出数据文件（.json）</button>
-      <button class="wide-btn wide-btn--ghost" id="btnImportData">导入并合并数据</button>
-      <input type="file" id="fileImport" accept=".json,application/json" hidden>
-    </div>
-
     <!-- 云同步：数据存在你自己的 GitHub / Gitee 仓库里，手机和电脑读同一份 -->
     <div class="panel">
       <div class="panel__title">云同步</div>
@@ -825,1214 +880,12 @@ button { cursor: pointer; border: none; background: none; }
   </div>
   <div class="detail__acts">
     <button class="wide-btn" id="btnDetailGift">给他记一笔</button>
-    <button class="wide-btn wide-btn--ghost" id="btnExportOne">导出此人记录（CSV）</button>
   </div>
 </section>
 
-<!-- 单文件版：数据存在本机浏览器里，换设备用「导出数据文件 / 导入并合并」 -->
+<!-- 单文件版：名单和往来数据都从 Gitee 仓库拉，不在文件里 -->
 <script>
 window.STANDALONE = true;
-// 初始名单：由 礼金登记表.xlsx 导出，共 171 位
-window.SEED_PEOPLE = [
- {
-  "id": "p1",
-  "name": "范斌",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p2",
-  "name": "汤伟",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p3",
-  "name": "杨吉国",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p4",
-  "name": "何天茂",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p5",
-  "name": "杨锋",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p6",
-  "name": "杨福南",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p7",
-  "name": "杨如章",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p8",
-  "name": "杨延彪",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p9",
-  "name": "杨延凯",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p10",
-  "name": "杨延俊",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p11",
-  "name": "杨吉波",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p12",
-  "name": "杨吉荣",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p13",
-  "name": "郑明华",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p14",
-  "name": "吴洁如",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p15",
-  "name": "郑明轩",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p16",
-  "name": "吴昌明",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p17",
-  "name": "谭必禄",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p18",
-  "name": "赵礼成",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p19",
-  "name": "薛前明",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p20",
-  "name": "梁涛",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p21",
-  "name": "尹国贵",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p22",
-  "name": "向雄",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p23",
-  "name": "向立保",
-  "gift": 400,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p24",
-  "name": "王帝荣",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p25",
-  "name": "谢作红",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p26",
-  "name": "赵德保",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p27",
-  "name": "陈德甫",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p28",
-  "name": "王平",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p29",
-  "name": "王嫚",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p30",
-  "name": "黄金国",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p31",
-  "name": "梅彪",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p32",
-  "name": "周军",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p33",
-  "name": "向必政",
-  "gift": 400,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p34",
-  "name": "向阳华",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p35",
-  "name": "杨应友",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p36",
-  "name": "何天顺",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p37",
-  "name": "毛平",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p38",
-  "name": "董传靖",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p39",
-  "name": "王华",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p40",
-  "name": "石国荣",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p41",
-  "name": "周权(沙地)",
-  "gift": 400,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p42",
-  "name": "马雪萍",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p43",
-  "name": "赵业炳",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p44",
-  "name": "汤永宜",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p45",
-  "name": "严学安",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p46",
-  "name": "向必明",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p47",
-  "name": "向必军",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p48",
-  "name": "王学清",
-  "gift": 1000,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p49",
-  "name": "孙兵",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p50",
-  "name": "向必伦",
-  "gift": 2000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p51",
-  "name": "郑开成",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p52",
-  "name": "郑海云",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p53",
-  "name": "崔定权",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p54",
-  "name": "郑明涛",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p55",
-  "name": "杨杰",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p56",
-  "name": "郑东云",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p57",
-  "name": "刘沛",
-  "gift": 2000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p58",
-  "name": "彭进权",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p59",
-  "name": "文昌清",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p60",
-  "name": "许兴兵",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p61",
-  "name": "周佳芝",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p62",
-  "name": "毛成林",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p63",
-  "name": "杨如宽",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p64",
-  "name": "杨如泰",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p65",
-  "name": "杨瑞",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p66",
-  "name": "向吉洲",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p67",
-  "name": "郑青云",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p68",
-  "name": "邱凯云",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p69",
-  "name": "郑明科",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p70",
-  "name": "向伟",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p71",
-  "name": "周奎(黄家亚)",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p72",
-  "name": "何天德",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p73",
-  "name": "刘诗齐",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p74",
-  "name": "张元忠",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p75",
-  "name": "陈飞",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p76",
-  "name": "陈朝兵",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p77",
-  "name": "向宏",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p78",
-  "name": "周祥玉",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p79",
-  "name": "朱宁",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p80",
-  "name": "向必志",
-  "gift": 1000,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p81",
-  "name": "向必祥",
-  "gift": 1000,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p82",
-  "name": "周佳宇",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p83",
-  "name": "杨廷忠",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p84",
-  "name": "杨如清",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p85",
-  "name": "毛成忠",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p86",
-  "name": "毛成云",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p87",
-  "name": "汤吉华",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p88",
-  "name": "杨巨伦",
-  "gift": 2000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p89",
-  "name": "杨小平",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p90",
-  "name": "杨志宏",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p91",
-  "name": "杨圣贤",
-  "gift": 2000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p92",
-  "name": "陈朝胜",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p93",
-  "name": "陈正举",
-  "gift": 100,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p94",
-  "name": "陈正德",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p95",
-  "name": "陈丰",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p96",
-  "name": "陈小双",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p97",
-  "name": "陈正林",
-  "gift": 5000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p98",
-  "name": "王华清",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p99",
-  "name": "谭章凯",
-  "gift": 200,
-  "repaid": false,
-  "note": "姓氏有涂改（原似梁）"
- },
- {
-  "id": "p100",
-  "name": "周权(三花平)",
-  "gift": 200,
-  "repaid": true,
-  "note": "原注“(欧坪)”被划去；与照片48周权(沙地)非同一人"
- },
- {
-  "id": "p101",
-  "name": "周传平",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p102",
-  "name": "李伟",
-  "gift": 1000,
-  "repaid": true,
-  "note": "蓝笔注“R他200”"
- },
- {
-  "id": "p103",
-  "name": "郑玉成",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p104",
-  "name": "汪如召",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p105",
-  "name": "周林",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p106",
-  "name": "周涛",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p107",
-  "name": "曾照明",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p108",
-  "name": "王月清",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p109",
-  "name": "郑明阳",
-  "gift": 400,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p110",
-  "name": "王佑成",
-  "gift": 200,
-  "repaid": true,
-  "note": "原书对勾对应本列"
- },
- {
-  "id": "p111",
-  "name": "吴海萍",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p112",
-  "name": "吴登锋",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p113",
-  "name": "胡凯",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p114",
-  "name": "杨吉友",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p115",
-  "name": "张传平",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p116",
-  "name": "周传德",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p117",
-  "name": "周祥松",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p118",
-  "name": "张学美",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p119",
-  "name": "程灼远",
-  "gift": 300,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p120",
-  "name": "毛成新",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p121",
-  "name": "郑玉清",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p122",
-  "name": "周传秀",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p123",
-  "name": "周传锋",
-  "gift": 200,
-  "repaid": false,
-  "note": "金额有涂改（300改200）"
- },
- {
-  "id": "p124",
-  "name": "杨如海",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p125",
-  "name": "杨如仙",
-  "gift": 200,
-  "repaid": true,
-  "note": "名字末字不清"
- },
- {
-  "id": "p126",
-  "name": "王家才",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p127",
-  "name": "周顺",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p128",
-  "name": "向帅",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p129",
-  "name": "向必红",
-  "gift": 4000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p130",
-  "name": "向必松",
-  "gift": 4000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p131",
-  "name": "向圣杰",
-  "gift": 600,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p132",
-  "name": "向福森",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p133",
-  "name": "李传彪",
-  "gift": 100,
-  "repaid": false,
-  "note": "名字末字不清（勉/彪）"
- },
- {
-  "id": "p134",
-  "name": "王学元",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p135",
-  "name": "何敏",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p136",
-  "name": "何天祥",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p137",
-  "name": "何天奎",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p138",
-  "name": "刘子红",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p139",
-  "name": "周卫",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p140",
-  "name": "向康吉",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p141",
-  "name": "王启胜",
-  "gift": 200,
-  "repaid": false,
-  "note": "顶部似有淡勾痕，请复核"
- },
- {
-  "id": "p142",
-  "name": "邹必艾",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p143",
-  "name": "黄建芳",
-  "gift": 300,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p144",
-  "name": "黄家顺",
-  "gift": 100,
-  "repaid": true,
-  "note": "顶部似有淡勾痕，请复核"
- },
- {
-  "id": "p145",
-  "name": "杨权",
-  "gift": 2000,
-  "repaid": false,
-  "note": "名字有涂改不清"
- },
- {
-  "id": "p146",
-  "name": "郑明魁",
-  "gift": 200,
-  "repaid": false,
-  "note": "名字末字不清（麟/琳）"
- },
- {
-  "id": "p147",
-  "name": "杨吉平",
-  "gift": 50000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p148",
-  "name": "郭彩龙",
-  "gift": 1000,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p149",
-  "name": "郑华云",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p150",
-  "name": "姚志权",
-  "gift": 1000,
-  "repaid": false,
-  "note": "原注“500+500 (生)(清月)”"
- },
- {
-  "id": "p151",
-  "name": "王任恒",
-  "gift": 500,
-  "repaid": false,
-  "note": "原注“200(汪婉玉)+”"
- },
- {
-  "id": "p152",
-  "name": "邓文双",
-  "gift": 400,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p153",
-  "name": "王启海",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p154",
-  "name": "汤吉兴",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p155",
-  "name": "汤勇",
-  "gift": 500,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p156",
-  "name": "汤吉福",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p157",
-  "name": "刘平",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p158",
-  "name": "汤蛟",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p159",
-  "name": "谭开龙",
-  "gift": 200,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p160",
-  "name": "谭敏",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p161",
-  "name": "周家富",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p162",
-  "name": "董雄",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p163",
-  "name": "许兴林",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p164",
-  "name": "许兴谷",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p165",
-  "name": "许怀普",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p166",
-  "name": "刘坤银",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p167",
-  "name": "郑明学",
-  "gift": 500,
-  "repaid": true,
-  "note": ""
- },
- {
-  "id": "p168",
-  "name": "向吉胜",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p169",
-  "name": "郑良成",
-  "gift": 100,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p170",
-  "name": "郑兴界",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- },
- {
-  "id": "p171",
-  "name": "胡举祥",
-  "gift": 200,
-  "repaid": false,
-  "note": ""
- }
-];
-
 /* 礼金记账 · 交互逻辑（数据存项目里的「礼金数据.json」，由 server.py 读写） */
 (function () {
   'use strict';
@@ -2045,8 +898,7 @@ window.SEED_PEOPLE = [
      两种模式，页面自己判断，不用用户选：
      1) 电脑上双击「启动礼金.bat」打开 → 数据写进项目里的「礼金数据.json」（server.py 负责）
      2) 手机上打开 / 传到静态托管 → 没有服务，数据存在这台设备的浏览器里
-     不管哪种模式，本地都再留一份，换设备时用「导出数据文件 → 导入并合并」汇总。 */
-  var connected = true;      // 是否连上了本地服务（决定 Excel 导出能不能用）
+     不管哪种模式，本地都再留一份；跨设备汇总靠云同步（Gitee / GitHub 仓库），不靠导出导入。 */
 
   var SAVE_URL = '/api/save';
   // 用 file:// 老方式打开时，相对地址连不上服务，退回本地服务的绝对地址
@@ -2085,7 +937,6 @@ window.SEED_PEOPLE = [
   };
 
   function setSaveState(kind) {
-    connected = kind === 'file';
     var el = $('saveBar');
     if (!el) return;
     var d = new Date();
@@ -2094,7 +945,7 @@ window.SEED_PEOPLE = [
     el.className = 'savebar savebar--' + (kind === 'file' ? 'ok' : 'warn');
     el.textContent = kind === 'file'
       ? '已保存到 礼金数据.json · ' + hm
-      : '已存在这台设备的浏览器里 · ' + hm + ' · 要汇总到别的设备，去统计页点「导出数据文件」';
+      : '已存在这台设备的浏览器里 · ' + hm + ' · 会自动同步到仓库';
   }
 
   var state = {
@@ -2135,11 +986,23 @@ window.SEED_PEOPLE = [
     return changed;
   }
 
-  /* ============ 初始化 ============ */
+  /* ============ 初始化 ============
+     不管哪台设备、哪种打开方式，都要先连上数据仓库、验证过令牌，才显示任何数据。
+     验证没过就停在连接页：一个人名、一笔金额都不渲染。 */
   function init() {
-    // 数据来源优先级：服务给的（电脑上） → 本机存的（手机/托管） → 更老的那份 → 账本种子
+    loadLocal();          // 本机 / 本地服务里那份先读进内存，先不渲染
+    bind();
+    var c = cloudConf();
+    if (c && c.owner && c.repo && c.token) {
+      unlock(c, true);    // 配过了，自动连；连不上就退回连接页
+    } else {
+      showGate();
+    }
+  }
+
+  /* 先把本机存的那份读进内存，等验证通过后再和仓库里的合并 */
+  function loadLocal() {
     var saved = window.SAVED_STATE || localData();
-    var fromFile = !!window.SAVED_STATE;
     if (!saved) {
       saved = (function () {
         try {
@@ -2154,27 +1017,64 @@ window.SEED_PEOPLE = [
       state.people = saved.people;
       state.records = saved.records || [];
       state.deleted = saved.deleted || [];
-      var fixed = applyNameFixes();
-      if (dropPageField()) fixed = true;
-      if (!fromFile || fixed) persist();
+      applyNameFixes();
+      dropPageField();
     } else {
       state.people = (window.SEED_PEOPLE || []).map(function (p) {
         return { id: p.id, name: p.name, gift: p.gift, repaid: !!p.repaid, note: p.note || '' };
       });
       state.records = [];
       state.deleted = [];
-      persist();
     }
-    bind();
-    renderPeople();
-    renderRecords();
-    renderStats();
-    renderCloud();
-    cloudSync(true);          // 配过云同步的话，开屏后台拉一次
   }
 
-  function persist() {
+  /* ============ 连接页（首次访问 / 换设备） ============ */
+  function showGate(msg, kind) {
+    $('app').hidden = true;
+    $('gate').hidden = false;
+    var c = cloudConf();                  // 连过的话把填过的带出来，令牌失效时好改
+    if (c) {
+      if (c.owner) $('gOwner').value = c.owner;
+      if (c.repo) $('gRepo').value = c.repo;
+      if (c.token) $('gToken').value = c.token;
+    }
+    if (msg !== undefined) gateSet(msg, kind);
+  }
+
+  function gateSet(text, kind) {
+    var el = $('gateMsg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'hint gate__msg' + (kind === 'ok' ? ' hint--ok' : kind === 'bad' ? ' hint--bad' : '');
+  }
+
+  /* 拉得下来才算验证通过；通过了才进主界面 */
+  function unlock(c, auto) {
+    if (typeof fetch !== 'function') { showGate('这个浏览器不支持联网取数据，换一个浏览器试试'); return; }
+    gateSet('正在连接…', '');
+    cloudGet(c).then(function (remote) {
+      saveCloudConf(c);                   // 记下来，下次打开自动连
+      if (remote && remote.data) mergeData(remote.data);
+      unlocked = true;
+      $('gate').hidden = true;
+      $('app').hidden = false;
+      persist(true);
+      renderPeople();
+      renderRecords();
+      renderStats();
+      renderCloud();
+      if (state.detailId) renderDetail();
+      cloudSync(true);                    // 合并完再推回去；第一次就是把本机的全量传上仓库
+      if (!auto) toast('连接成功');
+    }, function (e) {
+      gateSet('连接失败：' + e.message + '（改好后点「连接」重试）', 'bad');
+    });
+  }
+
+  /* skipCloud：配了云同步时，本地改动会自动排队推上去；同步流程自己触发的这次不用再排 */
+  function persist(skipCloud) {
     store.save({ people: state.people, records: state.records, deleted: state.deleted });
+    if (!skipCloud) cloudQueue();
   }
 
   /* ============ 小工具 ============ */
@@ -2905,75 +1805,9 @@ window.SEED_PEOPLE = [
     };
   }
 
-  /* ============ 导出 CSV ============ */
-  function download(filename, rows) {
-    var csv = rows.map(function (r) {
-      return r.map(function (c) {
-        var s = String(c == null ? '' : c);
-        return '"' + s.replace(/"/g, '""') + '"';
-      }).join(',');
-    }).join('\r\n');
-
-    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-  }
-
   function stamp() {
     var d = new Date();
     return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
-  }
-
-  function exportAll() {
-    if (!state.records.length) { toast('还没有记录可导出'); return; }
-    var rows = [['姓名', '方向', '金额（元）', '礼项', '日期', '备注']];
-    state.records.slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); })
-      .forEach(function (r) {
-        rows.push([r.name, isIn(r) ? '收礼' : '送礼', r.amount,
-                   r.item || '', r.date || '日期不详', r.note || '']);
-      });
-    download('礼金记录_' + stamp() + '.csv', rows);
-    toast('已导出 ' + state.records.length + ' 条记录');
-  }
-
-  function exportOne() {
-    var p = findPerson(state.detailId);
-    if (!p) return;
-    var rs = state.records.filter(function (r) { return r.personId === p.id; })
-      .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    if (!rs.length) { toast('这个人还没有记录'); return; }
-    var rows = [['姓名', '方向', '金额（元）', '礼项', '日期', '备注']];
-    rs.forEach(function (r) {
-      rows.push([r.name, isIn(r) ? '收礼' : '送礼', r.amount,
-                 r.item || '', r.date || '日期不详', r.note || '']);
-    });
-    download('礼金记录_' + p.name + '_' + stamp() + '.csv', rows);
-    toast('已导出 ' + rs.length + ' 条记录');
-  }
-
-  /* ============ 数据备份与合并 ============
-     手机和电脑各存各的，靠这个 json 文件来回搬：
-     在手机点「导出数据文件」→ 把文件发给自己 → 电脑上点「导入并合并」。 */
-  function exportDataFile() {
-    var body = JSON.stringify({ people: state.people, records: state.records, deleted: state.deleted }, null, 2);
-    var name = '礼金数据_' + stamp() + '.json';
-    var blob = new Blob([body], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    toast('已导出 ' + name + '（' + state.people.length + ' 人 / ' +
-          state.records.length + ' 笔）');
   }
 
   /* 按 id 合并；认不出 id 就按姓名认同一人，避免同一人两边各建一条。
@@ -3049,36 +1883,16 @@ window.SEED_PEOPLE = [
     return { people: addedP, records: addedR, merged: mergedP, removed: removed };
   }
 
-  function importDataFile(file) {
-    var fr = new FileReader();
-    fr.onload = function () {
-      var obj = null;
-      try { obj = JSON.parse(fr.result); } catch (e) { obj = null; }
-      if (!obj || !obj.people || !obj.people.length) {
-        toast('这个文件读不出人员数据，换个文件试试');
-        return;
-      }
-      var r = mergeData(obj);
-      persist();
-      renderPeople();
-      renderRecords();
-      renderStats();
-      var msg = '合并完成：新增 ' + r.people + ' 人 / ' + r.records + ' 笔';
-      if (r.merged) msg += '，更新 ' + r.merged + '人的信息';
-      if (r.removed) msg += '，按对面的删除记录去掉 ' + r.removed + ' 笔';
-      if (!r.people && !r.records && !r.merged && !r.removed) msg = '这份数据和现在的完全一样，没有变化';
-      toast(msg);
-    };
-    fr.onerror = function () { toast('文件读不了，换个文件试试'); };
-    fr.readAsText(file);
-  }
-
   /* ============ 云同步 ============
      把数据存进你自己的一个 GitHub / Gitee 仓库（就一个 json 文件），
      手机和电脑读的是同一份，不用再来回导出导入了。
      只用仓库的 Contents API，不需要服务器；令牌只存在这台设备，不进导出文件。 */
   var CLOUD_KEY = 'giftbook.cloud';
+  var CLOUD_DELAY = 4000;   // 改完等这么久没新动作就自动推（毫秒）
+  var unlocked = false;     // 验证通过、进主界面了没有；没通过不许显示数据、也不许推
   var cloudBusy = false;
+  var cloudDirty = false;   // 有本地改动还没推上去
+  var cloudTimer = null;
 
   function nowHM() {
     var d = new Date();
@@ -3095,6 +1909,8 @@ window.SEED_PEOPLE = [
   }
 
   function saveCloudConf(c) {
+    if (!c && cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
+    if (!c) cloudDirty = false;
     try {
       if (c) localStorage.setItem(CLOUD_KEY, JSON.stringify(c));
       else localStorage.removeItem(CLOUD_KEY);
@@ -3210,18 +2026,38 @@ window.SEED_PEOPLE = [
     });
   }
 
+  /* 配好云同步后，本地一改就排一次自动推送。
+     不马上推：攒几秒看还有没有下一笔，省得记一笔就生成一个提交记录、也少些撞车。
+     正在同步时只记个「还有改动」，等这次跑完会自己再排一次，不会把改动丢掉。 */
+  function cloudQueue() {
+    if (!unlocked) return;
+    if (!cloudConf()) return;
+    if (typeof fetch !== 'function') return;
+    cloudDirty = true;
+    cloudSetHint('有改动，待同步…', '');
+    if (cloudBusy) return;
+    if (cloudTimer) clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(function () {
+      cloudTimer = null;
+      cloudSync(true);
+    }, CLOUD_DELAY);
+  }
+
   function cloudSync(silent) {
     var c = cloudConf();
     if (!c || !c.token) { if (!silent) toast('还没配置云同步'); return; }
     if (cloudBusy) { if (!silent) toast('正在同步，稍等一下'); return; }
     if (typeof fetch !== 'function') { if (!silent) toast('这个浏览器不支持云同步'); return; }
 
+    if (cloudTimer) { clearTimeout(cloudTimer); cloudTimer = null; }
     cloudBusy = true;
+    cloudDirty = false;             // 这次推的就是此刻的全量数据
     cloudSetHint('同步中…', '');
     cloudOnce(c, 0).then(function (r) {
       cloudBusy = false;
-      persist();
+      persist(true);
       cloudSetHint('已同步 · ' + nowHM(), 'ok');
+      if (cloudDirty) cloudQueue();  // 推的过程中又被改了，再排一次
       if (!silent) {
         var n = r ? (r.people + r.records + r.merged + r.removed) : 0;
         toast(n ? '云同步完成，更新了 ' + n + ' 处' : '云同步完成，已经是最新的');
@@ -3230,6 +2066,7 @@ window.SEED_PEOPLE = [
       cloudBusy = false;
       cloudSetHint('同步失败：' + e.message, 'bad');
       if (!silent) toast('云同步失败：' + e.message);
+      // 失败不自动重试，免得令牌填错时反复撞接口；下次改动或重新打开页面会再同步
     });
   }
 
@@ -3444,25 +2281,22 @@ window.SEED_PEOPLE = [
       closeDetail();
       openSheet(p);
     };
-    $('btnExportOne').onclick = exportOne;
 
-    // 导出
-    $('btnExportAll').onclick = exportAll;
-    $('btnExportXlsx').onclick = function () {
-      if (!connected) {
-        toast('Excel 要靠电脑上的本地服务生成，手机上请用下面两个按钮');
-        return;
-      }
-      window.location.href = '/api/export.xlsx';
-      toast('正在生成 Excel…');
+    // 连接页：填账号 / 仓库 / 令牌，验证通过才显示数据
+    $('btnGateConnect').onclick = function () {
+      var c = {
+        platform: 'gitee',
+        owner: $('gOwner').value.trim(),
+        repo: $('gRepo').value.trim(),
+        branch: '',
+        path: '礼金数据.json',
+        token: $('gToken').value.trim()
+      };
+      if (!c.owner || !c.repo || !c.token) { gateSet('账号、仓库、令牌都要填', 'bad'); return; }
+      unlock(c, false);
     };
-
-    // 数据备份与合并
-    $('btnExportData').onclick = exportDataFile;
-    $('btnImportData').onclick = function () { $('fileImport').click(); };
-    $('fileImport').onchange = function () {
-      if (this.files && this.files[0]) importDataFile(this.files[0]);
-      this.value = '';            // 允许再导入同一个文件
+    $('gToken').onkeydown = function (e) {
+      if (e.key === 'Enter') $('btnGateConnect').onclick();
     };
 
     // 云同步
